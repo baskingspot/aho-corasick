@@ -104,9 +104,9 @@ if (Levels.find(line)) |m| {
 }
 ```
 
-The pattern list is checked while the type is analyzed. An empty pattern is a
-compile error. Two patterns that are equal, including equal after ASCII case
-folding, are a compile error. So is an empty list.
+The pattern list is checked while the type is analyzed. An empty pattern, an
+empty list, and two patterns that are equal, including equal after ASCII case
+folding, are compile errors.
 
 The compiler pays for the table once. A few hundred patterns compile in well
 under a second. The [Performance](#performance) chapter has the measured
@@ -258,7 +258,7 @@ const she = automaton.pattern(m.pattern);
 copy after `init` returns. `deinit` frees the tables and the copy; call it once.
 The automaton is not copyable.
 
-The runtime methods mirror the comptime ones: `find`, `findIter`,
+Its methods mirror the comptime ones: `find`, `findIter`,
 `findOverlappingIter`, `isMatch`, `replaceAll`, `nextState`, `firstMatch`, and
 the inspection methods. The match kind is a runtime field, so an overlapping
 search on a leftmost automaton panics rather than failing to compile.
@@ -281,8 +281,8 @@ var set = try automaton.whichMatches(gpa, "ushers");
 defer set.deinit(gpa);
 ```
 
-The runtime tables use `u32` state ids and a fixed 256-bit mask per state. The
-mask is 32 bytes per state even for a 26-letter alphabet. The
+Its tables use `u32` state ids and a fixed 256-bit mask per state. The mask is
+32 bytes per state even for a 26-letter alphabet. The
 [Performance](#performance) chapter has the rest.
 
 # Case folding

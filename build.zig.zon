@@ -11,6 +11,11 @@
             .hash = "testingx-0.3.0-ib95-9peAwBo6YXlj5M3PrJ7H8Rv87660dwKMXxewo5C",
             .lazy = true,
         },
+        .cli = .{
+            .url = "git+https://github.com/baskingspot/cli#c9f1259156a8fcefcd6a2360643474dae9a26dbc",
+            .hash = "cli-0.3.0-nGM5mxEWAQBQygP_PBKB2vPJdyYuYmXgHHxgKtlU3K3Y",
+            .lazy = true,
+        },
     },
     .paths = .{
         "build.zig",

@@ -1,17 +1,17 @@
-//! Randomized agreement with a naive scan.
+//! Randomized agreement with a naive scan, for the comptime and runtime
+//! automata.
 //!
 //! The naive scan tries every pattern at every offset. It is slow and
-//! obviously right, which is what the automaton is checked against. The
+//! obviously right, which is what the automata are checked against. The
 //! haystacks are generated from a small alphabet so overlaps, shared
 //! prefixes, and suffix matches come up constantly.
 
 const std = @import("std");
+const ac = @import("aho-corasick");
+const Match = ac.Match;
 const testing = std.testing;
 const print = std.debug.print;
 const ascii = std.ascii;
-
-const ac = @import("aho-corasick");
-const Match = ac.Match;
 
 const Set = struct {
     patterns: []const []const u8,
@@ -73,7 +73,53 @@ fn same(want: Match, got: Match) !void {
     try testing.expectEqual(want.end, got.end);
 }
 
-fn check(comptime set: Set, haystack: []const u8, matches: *std.ArrayList(Match)) !void {
+fn expectOverlapping(it: anytype, expected: []const Match, haystack: []const u8) !void {
+    var iter = it;
+    for (expected) |want| {
+        const got = iter.next() orelse {
+            print("missing overlapping {any} in {s}\n", .{ want, haystack });
+            return error.Missing;
+        };
+        try same(want, got);
+    }
+    try testing.expect(iter.next() == null);
+}
+
+fn expectStandard(it: anytype, expected: []const Match, haystack: []const u8) !void {
+    var iter = it;
+    var at: usize = 0;
+    for (expected) |candidate| {
+        if (candidate.start < at) continue;
+        const got = iter.next() orelse {
+            print("missing standard {any} in {s}\n", .{ candidate, haystack });
+            return error.Missing;
+        };
+        try same(candidate, got);
+        at = candidate.end;
+    }
+    try testing.expect(iter.next() == null);
+}
+
+fn expectLeftmost(it: anytype, expected: []const Match, haystack: []const u8) !void {
+    var iter = it;
+    var at: usize = 0;
+    for (expected) |candidate| {
+        if (candidate.start < at) continue;
+        const got = iter.next() orelse {
+            print("missing leftmost {any} in {s}\n", .{ candidate, haystack });
+            return error.Missing;
+        };
+        try same(candidate, got);
+        at = candidate.end;
+    }
+    try testing.expect(iter.next() == null);
+}
+
+fn check(
+    comptime set: Set,
+    haystack: []const u8,
+    matches: *std.ArrayList(Match),
+) !void {
     matches.clearRetainingCapacity();
     try collect(set, haystack, matches);
 
@@ -87,74 +133,58 @@ fn check(comptime set: Set, haystack: []const u8, matches: *std.ArrayList(Match)
         .ascii_case_insensitive = set.fold,
     });
 
-    // Overlapping: every match, in end order.
     std.mem.sort(Match, matches.items, {}, byEnd);
-    {
-        var iter = Standard.findOverlappingIter(haystack);
-        for (matches.items) |want| {
-            const got = iter.next() orelse {
-                print("missing overlapping {any} in {s}\n", .{ want, haystack });
-                return error.Missing;
-            };
-            try same(want, got);
-        }
-        try testing.expect(iter.next() == null);
-    }
+    try expectOverlapping(Standard.findOverlappingIter(haystack), matches.items, haystack);
+    try expectStandard(Standard.findIter(haystack), matches.items, haystack);
 
-    // Standard: earliest end, skipping anything that overlaps the last match.
-    {
-        var iter = Standard.findIter(haystack);
-        var at: usize = 0;
-        for (matches.items) |candidate| {
-            if (candidate.start < at) continue;
-            const got = iter.next() orelse {
-                print("missing standard {any} in {s}\n", .{ candidate, haystack });
-                return error.Missing;
-            };
-            try same(candidate, got);
-            at = candidate.end;
-        }
-        try testing.expect(iter.next() == null);
-    }
-
-    // Leftmost first: smallest start, then the earliest pattern.
     std.mem.sort(Match, matches.items, {}, byStartPattern);
-    {
-        var iter = First.findIter(haystack);
-        var at: usize = 0;
-        for (matches.items) |candidate| {
-            if (candidate.start < at) continue;
-            const got = iter.next() orelse {
-                print("missing first {any} in {s}\n", .{ candidate, haystack });
-                return error.Missing;
-            };
-            try same(candidate, got);
-            at = candidate.end;
-        }
-        try testing.expect(iter.next() == null);
-    }
+    try expectLeftmost(First.findIter(haystack), matches.items, haystack);
 
-    // Leftmost longest: smallest start, then the longest.
     std.mem.sort(Match, matches.items, {}, byStartLength);
-    {
-        var iter = Longest.findIter(haystack);
-        var at: usize = 0;
-        for (matches.items) |candidate| {
-            if (candidate.start < at) continue;
-            const got = iter.next() orelse {
-                print("missing longest {any} in {s}\n", .{ candidate, haystack });
-                return error.Missing;
-            };
-            try same(candidate, got);
-            at = candidate.end;
-        }
-        try testing.expect(iter.next() == null);
-    }
+    try expectLeftmost(Longest.findIter(haystack), matches.items, haystack);
+}
+
+fn checkRuntime(
+    comptime set: Set,
+    standard: *const ac.Automaton,
+    first: *const ac.Automaton,
+    longest: *const ac.Automaton,
+    haystack: []const u8,
+    matches: *std.ArrayList(Match),
+) !void {
+    matches.clearRetainingCapacity();
+    try collect(set, haystack, matches);
+
+    std.mem.sort(Match, matches.items, {}, byEnd);
+    try expectOverlapping(standard.findOverlappingIter(haystack), matches.items, haystack);
+    try expectStandard(standard.findIter(haystack), matches.items, haystack);
+
+    std.mem.sort(Match, matches.items, {}, byStartPattern);
+    try expectLeftmost(first.findIter(haystack), matches.items, haystack);
+
+    std.mem.sort(Match, matches.items, {}, byStartLength);
+    try expectLeftmost(longest.findIter(haystack), matches.items, haystack);
 }
 
 fn run(comptime set: Set) !void {
     var matches: std.ArrayList(Match) = .empty;
     defer matches.deinit(testing.allocator);
+
+    var standard = try ac.Automaton.init(testing.allocator, set.patterns, .{
+        .match_kind = .standard,
+        .ascii_case_insensitive = set.fold,
+    });
+    defer standard.deinit();
+    var first = try ac.Automaton.init(testing.allocator, set.patterns, .{
+        .match_kind = .leftmost_first,
+        .ascii_case_insensitive = set.fold,
+    });
+    defer first.deinit();
+    var longest = try ac.Automaton.init(testing.allocator, set.patterns, .{
+        .match_kind = .leftmost_longest,
+        .ascii_case_insensitive = set.fold,
+    });
+    defer longest.deinit();
 
     var prng: std.Random.DefaultPrng = .init(testing.random_seed);
     const random = prng.random();
@@ -166,6 +196,7 @@ fn run(comptime set: Set) !void {
             byte.* = set.alphabet[random.uintLessThan(usize, set.alphabet.len)];
         }
         try check(set, haystack[0..len], &matches);
+        try checkRuntime(set, &standard, &first, &longest, haystack[0..len], &matches);
     }
 }
 

@@ -24,32 +24,11 @@ const testing = std.testing;
 const ascii = std.ascii;
 const Io = std.Io;
 const Match = @import("Match.zig");
-
 const compat = @import("compat.zig");
-
-/// How an automaton chooses the match to report when more than one ends up
-/// being a candidate.
-pub const MatchKind = enum {
-    /// Report each match as soon as the automaton reaches it, which orders
-    /// matches by end offset. This is the textbook Aho-Corasick behavior and
-    /// the only kind that supports overlapping searches.
-    standard,
-    /// Report the match that starts earliest. When two matches start at the
-    /// same offset, the pattern listed first wins, so `{"ab", "abc"}` returns
-    /// the one listed first on `"abc"`.
-    leftmost_first,
-    /// Report the match that starts earliest. When two matches start at the
-    /// same offset, the longest wins.
-    leftmost_longest,
-};
-
-// ast-grep-ignore: public-struct-field-default -- an options bag; a call site overrides one knob.
-pub const Options = struct {
-    match_kind: MatchKind = .standard,
-    /// Fold ASCII letters in both the patterns and the haystack, so `"Apple"`
-    /// matches `"apple"`. Other bytes compare exactly.
-    ascii_case_insensitive: bool = false,
-};
+const Options = @import("Options.zig").Options;
+const MatchKind = @import("Options.zig").MatchKind;
+const Tables = @import("Tables.zig").Tables;
+const Searcher = @import("Search.zig").Searcher;
 
 /// Builds a matcher for `patterns` at comptime.
 ///
@@ -80,10 +59,10 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
     const max_nodes = total_bytes + 1;
     const max_edges = max_nodes - 1;
 
+    if (max_len > math.maxInt(u16)) @compileError("aho-corasick: pattern longer than 65535 bytes");
+
     // A node id never exceeds max_nodes. max_nodes itself is "no node".
     const NodeIndex = math.IntFittingRange(0, max_nodes);
-    const Depth = math.IntFittingRange(0, max_len);
-    const Offset = math.IntFittingRange(0, max_edges);
     const none: NodeIndex = max_nodes;
 
     const no_id: u32 = @intCast(n_patterns);
@@ -189,7 +168,7 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
         edge_to: [max_edges]NodeIndex,
         parent: [max_nodes]NodeIndex,
         in_byte: [max_nodes]u8,
-        depths: [max_nodes]Depth,
+        depths: [max_nodes]u16,
         /// The pattern that ends at the node, or no_id.
         own_id: [max_nodes]u32,
         node_count: u32,
@@ -203,7 +182,7 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
         var edge_to: [max_edges]NodeIndex = @splat(0);
         var parent: [max_nodes]NodeIndex = @splat(0);
         var in_byte: [max_nodes]u8 = @splat(0);
-        var depths: [max_nodes]Depth = @splat(0);
+        var depths: [max_nodes]u16 = @splat(0);
         var own_id: [max_nodes]u32 = @splat(no_id);
         var node_count: u32 = 1;
         var edge_count: u32 = 0;
@@ -265,7 +244,7 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
         }
     };
 
-    const alphabet = blk: {
+    const alphabet_bytes = blk: {
         var seen: [256]bool = @splat(false);
         for (0..trie.edge_count) |edge| seen[trie.edge_byte[edge]] = true;
         var count: usize = 0;
@@ -282,7 +261,7 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
         }
         break :blk list;
     };
-    const alphabet_len = alphabet.len;
+    const alphabet_len = alphabet_bytes.len;
 
     const Mask = compat.Integer(@intCast(alphabet_len));
 
@@ -376,7 +355,7 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
         var table: [256]u16 = @splat(@as(u16, @intCast(alphabet_len)));
         for (&table, 0..) |*class, byte| {
             const folded_byte = fold_table[@intCast(byte)];
-            for (alphabet, 0..) |candidate, index| {
+            for (alphabet_bytes, 0..) |candidate, index| {
                 if (candidate == folded_byte) {
                     class.* = @intCast(index);
                     break;
@@ -386,15 +365,21 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
         break :blk table;
     };
 
+    const pattern_lens: [n_patterns]u32 = blk: {
+        var lens: [n_patterns]u32 = undefined;
+        for (patterns, 0..) |bytes, id| lens[id] = @intCast(bytes.len);
+        break :blk lens;
+    };
+
     const Compact = struct {
         masks: [max_nodes]Mask,
-        offsets: [max_nodes]Offset,
+        offsets: [max_nodes]u32,
         children: [max_edges]NodeIndex,
     };
 
     const compact: Compact = blk: {
         var masks: [max_nodes]Mask = @splat(compat.empty(Mask));
-        var offsets: [max_nodes]Offset = @splat(0);
+        var offsets: [max_nodes]u32 = @splat(0);
         var children: [max_edges]NodeIndex = @splat(0);
         var packed_len: usize = 0;
 
@@ -418,34 +403,24 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
         break :blk .{ .masks = masks, .offsets = offsets, .children = children };
     };
 
-    const Automaton = struct {
-        failure: [max_nodes]NodeIndex,
-        /// The next node up the failure chain with an own id, or none.
-        links: [max_nodes]NodeIndex,
-        /// One bit per alphabet class. The set bits index the packed child
-        /// array through `offsets` and `rank`.
-        masks: [max_nodes]Mask,
-        offsets: [max_nodes]Offset,
-        children: [max_edges]NodeIndex,
-        /// The length of the text a node matched, used by leftmost search to
-        /// decide when no earlier match can still be in flight.
-        depths: [max_nodes]Depth,
-        own_id: [max_nodes]u32,
-        /// The alphabet class of every byte, or `alphabet_len` when the byte
-        /// cannot start or extend a match.
-        classes: [256]u16,
-    };
+    const TablesImpl = Tables(NodeIndex, Mask);
+    const Search = Searcher(TablesImpl);
 
     return struct {
-        const automaton: Automaton = .{
-            .failure = failures,
-            .links = links,
-            .masks = compact.masks,
-            .offsets = compact.offsets,
-            .children = compact.children,
-            .depths = trie.depths,
-            .own_id = trie.own_id,
+        const tables: TablesImpl = .{
+            .failure = failures[0..trie.node_count],
+            .links = links[0..trie.node_count],
+            .masks = compact.masks[0..trie.node_count],
+            .offsets = compact.offsets[0..trie.node_count],
+            .children = compact.children[0..trie.edge_count],
+            .depths = trie.depths[0..trie.node_count],
+            .own_id = trie.own_id[0..trie.node_count],
             .classes = classes,
+            .alphabet = &alphabet_bytes,
+            .pattern_lens = &pattern_lens,
+            .match_kind = options.match_kind,
+            .no_id = no_id,
+            .none = none,
         };
 
         pub const State = NodeIndex;
@@ -463,7 +438,7 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
 
         pub fn minPatternLen() usize {
             var min: usize = max_len;
-            for (patterns) |pattern| min = @min(min, pattern.len);
+            for (patterns) |bytes| min = @min(min, bytes.len);
             return min;
         }
 
@@ -475,88 +450,124 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
             return options.match_kind;
         }
 
-        /// Bytes of read-only data the automaton occupies.
-        pub fn memoryUsage() usize {
-            return @sizeOf(Automaton);
+        /// The size of each table in the automaton, in bytes. The arrays are
+        /// sized for the worst case, not for the nodes actually built.
+        pub const Memory = struct {
+            total: usize,
+            failure: usize,
+            links: usize,
+            masks: usize,
+            offsets: usize,
+            children: usize,
+            depths: usize,
+            own_id: usize,
+            classes: usize,
+            alphabet: usize,
+        };
+
+        pub fn memory() Memory {
+            const failure_size = max_nodes * @sizeOf(NodeIndex);
+            const links_size = max_nodes * @sizeOf(NodeIndex);
+            const masks_size = max_nodes * @sizeOf(Mask);
+            const offsets_size = max_nodes * @sizeOf(u32);
+            const children_size = max_edges * @sizeOf(NodeIndex);
+            const depths_size = max_nodes * @sizeOf(u16);
+            const own_id_size = max_nodes * @sizeOf(u32);
+            const classes_size = 256 * @sizeOf(u16);
+            const alphabet_size = alphabet_len * @sizeOf(u8);
+            return .{
+                .total = failure_size + links_size + masks_size + offsets_size +
+                    children_size + depths_size + own_id_size + classes_size + alphabet_size,
+                .failure = failure_size,
+                .links = links_size,
+                .masks = masks_size,
+                .offsets = offsets_size,
+                .children = children_size,
+                .depths = depths_size,
+                .own_id = own_id_size,
+                .classes = classes_size,
+                .alphabet = alphabet_size,
+            };
         }
 
-        /// The state after reading `byte` from `state`.
-        ///
-        /// This is the escape hatch for callers that drive the automaton
-        /// themselves, for example a streaming search over chunks.
-        pub fn nextState(state: State, byte: u8) State {
-            const class = automaton.classes[byte];
-            if (alphabet_len != 256 and class == alphabet_len) return 0;
+        pub fn memoryUsage() usize {
+            return memory().total;
+        }
 
-            var current = state;
-            while (!automaton.masks[current].isSet(class)) {
-                if (current == 0) return 0;
-                current = automaton.failure[current];
-            }
-            const rank = Rank.rank(automaton.masks[current], class);
-            return automaton.children[@as(usize, automaton.offsets[current]) + rank];
+        pub fn stateCount() usize {
+            return tables.stateCount();
+        }
+
+        pub fn transitionCount() usize {
+            return trie.edge_count;
+        }
+
+        pub fn alphabet() []const u8 {
+            return tables.alphabet;
+        }
+
+        /// The pattern at `id`.
+        pub fn pattern(id: u32) []const u8 {
+            return patterns[id];
+        }
+
+        pub fn stateDepth(state: State) usize {
+            return tables.stateDepth(state);
+        }
+
+        pub fn stateFailure(state: State) State {
+            return tables.stateFailure(state);
+        }
+
+        pub fn stateOutput(state: State) ?u32 {
+            return tables.stateOutput(state);
+        }
+
+        pub fn transitions(state: State) Search.Transitions {
+            return Search.transitions(&tables, state);
+        }
+
+        pub fn matchesAt(state: State, end: usize) Search.Matches {
+            return Search.matchesAt(&tables, state, end);
+        }
+
+        pub fn firstMatch(state: State, end: usize) ?Match {
+            return Search.firstMatch(&tables, state, end);
+        }
+
+        pub fn nextState(state: State, byte: u8) State {
+            return tables.nextState(state, byte);
         }
 
         pub fn isMatchState(state: State) bool {
-            return automaton.own_id[state] != no_id or automaton.links[state] != none;
-        }
-
-        /// The first match that ends at `state`, with `end` as its end offset.
-        /// The longest pattern ending at the state comes first, then the
-        /// suffixes on the failure chain.
-        pub fn firstMatch(state: State, end: usize) ?Match {
-            var node = state;
-            if (automaton.own_id[node] == no_id) node = automaton.links[node];
-            if (node == none) return null;
-            const id = automaton.own_id[node];
-            return .{ .pattern = id, .start = end - patterns[id].len, .end = end };
+            return tables.own_id[state] != no_id or tables.links[state] != none;
         }
 
         /// The first match in the haystack, or null.
         pub fn find(haystack: []const u8) ?Match {
-            var iter: Iter = .{
-                .haystack = haystack,
-                .at = 0,
-                .end = 0,
-                .state = 0,
-                .cursor = .{ .node = none },
-            };
-            return iter.next();
+            return Search.find(&tables, haystack);
         }
 
         pub fn isMatch(haystack: []const u8) bool {
-            return find(haystack) != null;
+            return Search.isMatch(&tables, haystack);
         }
 
         /// Non-overlapping matches according to `matchKind()`.
-        pub fn findIter(haystack: []const u8) Iter {
-            return .{
-                .haystack = haystack,
-                .at = 0,
-                .end = 0,
-                .state = 0,
-                .cursor = .{ .node = none },
-            };
+        pub fn findIter(haystack: []const u8) Search.Iter {
+            return Search.findIter(&tables, haystack);
         }
 
         /// The first match in end-offset order. Only for `.standard`.
         pub fn findOverlapping(haystack: []const u8) ?Match {
             comptime requireStandard("findOverlapping");
-            var iter = findOverlappingIter(haystack);
-            return iter.next();
+            return Search.findOverlapping(&tables, haystack);
         }
 
         /// Every match, including overlapping ones, in end-offset order.
         /// Only for `.standard`.
-        pub fn findOverlappingIter(haystack: []const u8) OverlappingIter {
+        pub fn findOverlappingIter(haystack: []const u8) Search.OverlappingIter {
             comptime requireStandard("findOverlappingIter");
-            return .{
-                .haystack = haystack,
-                .at = 0,
-                .end = 0,
-                .state = 0,
-                .cursor = .{ .node = none },
-            };
+            return Search.findOverlappingIter(&tables, haystack);
         }
 
         /// The set of patterns that match anywhere in the haystack. Only for
@@ -566,7 +577,7 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
         pub fn whichMatches(haystack: []const u8) PatternSet {
             comptime requireStandard("whichMatches");
             var set = compat.empty(PatternSet);
-            var iter = findOverlappingIter(haystack);
+            var iter = Search.findOverlappingIter(&tables, haystack);
             while (iter.next()) |m| set.set(m.pattern);
             return set;
         }
@@ -578,17 +589,7 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
             haystack: []const u8,
             replacements: []const []const u8,
         ) !void {
-            if (replacements.len != n_patterns) {
-                @panic("aho-corasick: replaceAll needs one replacement per pattern");
-            }
-            var last: usize = 0;
-            var iter = findIter(haystack);
-            while (iter.next()) |m| {
-                try writer.writeAll(haystack[last..m.start]);
-                try writer.writeAll(replacements[m.pattern]);
-                last = m.end;
-            }
-            try writer.writeAll(haystack[last..]);
+            return Search.replaceAll(&tables, writer, haystack, replacements);
         }
 
         fn requireStandard(comptime method: []const u8) void {
@@ -596,141 +597,6 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
                 "aho-corasick: " ++ method ++ " needs MatchKind.standard",
             );
         }
-
-        /// Walks the matches that end at one state: the node's own pattern,
-        /// then the pattern ends linked up the failure chain.
-        const OutputCursor = struct {
-            node: State = none,
-
-            fn init(state: State) OutputCursor {
-                return .{
-                    .node = if (automaton.own_id[state] != no_id)
-                        state
-                    else
-                        automaton.links[state],
-                };
-            }
-
-            fn next(self: *OutputCursor) ?u32 {
-                const node = self.node;
-                if (node == none) return null;
-                self.node = automaton.links[node];
-                return automaton.own_id[node];
-            }
-        };
-
-        /// Non-overlapping matches. The state is reset after each match, so a
-        /// match that starts before the previous one ended is never reported.
-        pub const Iter = struct {
-            haystack: []const u8,
-            at: usize,
-            end: usize,
-            state: State,
-            cursor: OutputCursor,
-
-            pub fn next(self: *Iter) ?Match {
-                return switch (options.match_kind) {
-                    .standard => self.nextStandard(),
-                    .leftmost_first, .leftmost_longest => self.nextLeftmost(),
-                };
-            }
-
-            fn nextStandard(self: *Iter) ?Match {
-                while (true) {
-                    if (self.cursor.next()) |id| {
-                        const m: Match = .{
-                            .pattern = id,
-                            .start = self.end - patterns[id].len,
-                            .end = self.end,
-                        };
-                        self.state = 0;
-                        self.cursor = .{ .node = none };
-                        return m;
-                    }
-                    if (self.at == self.haystack.len) return null;
-                    self.state = nextState(self.state, self.haystack[self.at]);
-                    self.at += 1;
-                    self.end = self.at;
-                    self.cursor = .init(self.state);
-                }
-            }
-
-            fn nextLeftmost(self: *Iter) ?Match {
-                if (self.at == self.haystack.len) return null;
-
-                var state: State = 0;
-                var best: ?Match = null;
-                var pos = self.at;
-                while (pos < self.haystack.len) {
-                    state = nextState(state, self.haystack[pos]);
-                    pos += 1;
-
-                    var cursor: OutputCursor = .init(state);
-                    while (cursor.next()) |id| {
-                        const m: Match = .{
-                            .pattern = id,
-                            .start = pos - patterns[id].len,
-                            .end = pos,
-                        };
-                        if (best == null or isBetter(m, best.?)) best = m;
-                    }
-
-                    // A match that starts at or before the best candidate and
-                    // has not ended yet would be a suffix of the bytes read so
-                    // far. Once the current state is shorter than that suffix,
-                    // no such match can exist and the candidate is final.
-                    if (best) |b| {
-                        if (@as(usize, automaton.depths[state]) < pos - b.start) break;
-                    }
-                }
-
-                if (best) |b| {
-                    self.at = b.end;
-                    return b;
-                }
-                self.at = self.haystack.len;
-                return null;
-            }
-
-            fn isBetter(a: Match, b: Match) bool {
-                if (a.start != b.start) return a.start < b.start;
-                return switch (options.match_kind) {
-                    .leftmost_first => a.pattern < b.pattern,
-                    .leftmost_longest => if (a.len() != b.len())
-                        a.len() > b.len()
-                    else
-                        a.pattern < b.pattern,
-                    .standard => unreachable,
-                };
-            }
-        };
-
-        /// Every match, including overlapping ones, in end-offset order. At
-        /// one end offset the longest match comes first.
-        pub const OverlappingIter = struct {
-            haystack: []const u8,
-            at: usize,
-            end: usize,
-            state: State,
-            cursor: OutputCursor,
-
-            pub fn next(self: *OverlappingIter) ?Match {
-                while (true) {
-                    if (self.cursor.next()) |id| {
-                        return .{
-                            .pattern = id,
-                            .start = self.end - patterns[id].len,
-                            .end = self.end,
-                        };
-                    }
-                    if (self.at == self.haystack.len) return null;
-                    self.state = nextState(self.state, self.haystack[self.at]);
-                    self.at += 1;
-                    self.end = self.at;
-                    self.cursor = .init(self.state);
-                }
-            }
-        };
     };
 }
 

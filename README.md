@@ -10,12 +10,13 @@ haystack. The first version of this lived in `moomd`, where a fixed list of
 Postgres process states had to be classified from a log line. That one
 returned a boolean and stopped at the first match.
 
-This is the general version. The patterns and the match semantics are comptime
-values, the compiler builds the trie, the failure links, and the output links,
-and the result is read-only data. A search takes an `[]const u8`, allocates
-nothing, and returns byte offsets. The API follows the Rust
-[`aho-corasick`](https://docs.rs/aho-corasick) crate: a `Match` is a pattern id
-and a byte range, and three match kinds say which of several matches wins.
+This is the general version. There are two forms. `Matcher` takes the patterns
+and the match semantics as comptime values: the compiler builds the trie, the
+failure links, and the output links, and the result is read-only data.
+`Automaton` builds the same tables at runtime from a pattern list and an
+allocator. Both share one searcher, so a `Match` is a pattern id and a byte
+range, and three match kinds say which of several matches wins. The API
+follows the Rust [`aho-corasick`](https://docs.rs/aho-corasick) crate.
 
 ```zig
 const ac = @import("aho-corasick");
@@ -28,17 +29,27 @@ while (it.next()) |m| {
 }
 ```
 
-The compiler pays for the automaton once. Measured with Zig 0.16 on
+The compiler pays for the comptime automaton once. Measured with Zig 0.16 on
 aarch64-linux, above a one-pattern baseline: 100 patterns take about 0.2 s to
 compile, 1,000 take about 4 s, and 5,000 take about 80 s. The cost grows faster
 than the pattern count because Zig's comptime evaluator copies an array on
-every element access. Static dictionaries in the hundreds are the sweet spot;
-a runtime builder is the next piece for larger sets.
+every element access. Static dictionaries in the hundreds are the sweet spot.
+
+The runtime form pays none of that at compile time:
+
+```zig
+var automaton = try ac.Automaton.init(gpa, &.{ "she", "he", "hers" }, .{});
+defer automaton.deinit();
+const m = automaton.find("ushers").?;
+```
 
 ## What is in it
 
 - `Matcher`: builds an automaton from a comptime pattern list and options.
   Every pattern gets the id of its position in that list.
+- `Automaton`: builds the same automaton at runtime from a pattern list and an
+  allocator. It copies the patterns, owns its tables, and frees them in
+  `deinit`.
 - `find`, `findIter`, `findOverlappingIter`, `isMatch`, `whichMatches`: the
   search surface. `Match` carries the pattern id and the byte range.
 - `MatchKind`: `.standard` reports the earliest end and is the only kind that
@@ -53,8 +64,8 @@ a runtime builder is the next piece for larger sets.
 
 Not implemented:
 
-- A runtime builder. The automaton is comptime only, so a dictionary too large
-  to compile is not supported yet.
+- A terminal UI. `just viz` prints stats, the trie, Graphviz DOT, and a match
+  walk; there is no interactive view yet.
 - Unicode case folding. `ascii_case_insensitive` folds ASCII letters only.
 - Empty patterns and duplicate patterns, including duplicates after folding,
   are compile errors.
@@ -96,6 +107,10 @@ nix develop            # Zig 0.17 and the tools
 nix develop .#zig-old  # Zig 0.16
 just ci                # the full gate: Debug, ReleaseSafe, ReleaseFast, then lint
 just check             # the test matrix alone, for the compatibility shell
+just viz tools/patterns.txt                 # the trie, with failure links and outputs
+just viz tools/patterns.txt -f stats        # pattern, state, and memory counts
+just viz tools/patterns.txt -f walk -t ushers  # one state per byte, with matches
+just viz-svg tools/patterns.txt             # render the DOT to automaton.svg
 ```
 
 ## License

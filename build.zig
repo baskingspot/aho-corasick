@@ -43,6 +43,28 @@ pub fn build(b: *std.Build) void {
     const run_fuzz = b.addRunArtifact(fuzz_tests);
     passthruArgs(b, run_fuzz);
     test_step.dependOn(&run_fuzz.step);
+
+    // The inspection tool is a developer program, not part of the package.
+    // `cli` is lazy for the same reason testingx is: a consumer never fetches
+    // it.
+    if (b.lazyDependency("cli", .{ .target = target })) |cli_dep| {
+        const viz = b.addExecutable(.{
+            .name = "acviz",
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("tools/acviz.zig"),
+                .target = target,
+                .optimize = optimize,
+                .imports = &.{
+                    .{ .name = "aho-corasick", .module = mod },
+                    .{ .name = "cli", .module = cli_dep.module("cli") },
+                },
+            }),
+        });
+        const run_viz = b.addRunArtifact(viz);
+        passthruArgs(b, run_viz);
+        const viz_step = b.step("viz", "Inspect an Aho-Corasick automaton");
+        viz_step.dependOn(&run_viz.step);
+    }
 }
 
 /// `b.args` (removed in Zig 0.17) and `Run.addPassthruArgs` are the same

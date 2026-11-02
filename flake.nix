@@ -29,10 +29,7 @@
               config.devShells.base
               config.devShells."zig-0-17"
             ];
-            packages = [
-              pkgs.graphviz
-              config.packages."ziglint-0-16"
-            ];
+            packages = [ config.packages."ziglint-0-16" ];
           };
 
           devShells.zig-old = pkgs.mkShell {
@@ -40,10 +37,7 @@
               config.devShells.base
               config.devShells."zig-0-16"
             ];
-            packages = [
-              pkgs.graphviz
-              config.packages."ziglint-0-16"
-            ];
+            packages = [ config.packages."ziglint-0-16" ];
           };
         };
     };

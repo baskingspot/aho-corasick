@@ -110,7 +110,7 @@ just check             # the test matrix alone, for the compatibility shell
 just viz tools/patterns.txt                 # the trie, with failure links and outputs
 just viz tools/patterns.txt -f stats        # pattern, state, and memory counts
 just viz tools/patterns.txt -f walk -t ushers  # one state per byte, with matches
-just viz-svg tools/patterns.txt             # render the DOT to automaton.svg
+just viz-svg tools/patterns.txt             # DOT through Graphviz, if `dot` is on PATH
 ```
 
 ## License

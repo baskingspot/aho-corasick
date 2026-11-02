@@ -45,7 +45,7 @@ fmt:
 viz *ARGS:
     zig build viz -- {{ ARGS }}
 
-[doc("Render the automaton to SVG with Graphviz: `just viz-svg tools/patterns.txt automaton.svg`")]
+[doc("Render the automaton to SVG: `just viz-svg tools/patterns.txt automaton.svg`. Needs Graphviz on PATH")]
 [group("viz")]
 viz-svg PATTERNS OUT="automaton.svg":
     zig build viz -- {{ PATTERNS }} -f dot | dot -Tsvg > {{ OUT }}

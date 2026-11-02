@@ -36,11 +36,11 @@ pub fn Tables(comptime State: type, comptime Mask: type) type {
         no_id: u32,
         none: State,
 
-        pub fn stateCount(self: Self) usize {
+        pub fn stateCount(self: *const Self) usize {
             return self.masks.len;
         }
 
-        pub fn alphabetLen(self: Self) usize {
+        pub fn alphabetLen(self: *const Self) usize {
             return self.alphabet.len;
         }
 
@@ -50,7 +50,7 @@ pub fn Tables(comptime State: type, comptime Mask: type) type {
             return @popCount(mask.mask & ((one << shift) - one));
         }
 
-        pub fn nextState(self: Self, state: State, byte: u8) State {
+        pub fn nextState(self: *const Self, state: State, byte: u8) State {
             const class = self.classes[byte];
             if (self.alphabetLen() != 256 and class == self.alphabetLen()) return 0;
 
@@ -63,24 +63,24 @@ pub fn Tables(comptime State: type, comptime Mask: type) type {
             return self.children[@as(usize, self.offsets[current]) + index];
         }
 
-        pub fn stateDepth(self: Self, state: State) usize {
+        pub fn stateDepth(self: *const Self, state: State) usize {
             return self.depths[state];
         }
 
-        pub fn stateFailure(self: Self, state: State) State {
+        pub fn stateFailure(self: *const Self, state: State) State {
             return self.failure[state];
         }
 
-        pub fn stateOutput(self: Self, state: State) ?u32 {
+        pub fn stateOutput(self: *const Self, state: State) ?u32 {
             const id = self.own_id[state];
             return if (id == self.no_id) null else id;
         }
 
-        pub fn linkOf(self: Self, state: State) State {
+        pub fn linkOf(self: *const Self, state: State) State {
             return self.links[state];
         }
 
-        pub fn patternLen(self: Self, id: u32) usize {
+        pub fn patternLen(self: *const Self, id: u32) usize {
             return self.pattern_lens[id];
         }
     };

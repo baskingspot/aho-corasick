@@ -8,20 +8,16 @@
 Aho-Corasick multi-pattern search in Zig, with the automaton built at comptime.
 
 Aho-Corasick finds every occurrence of a set of patterns in one pass over the
-haystack. The first version of this lived in `moomd`, where a fixed list of
-Postgres process states had to be classified from a log line. That one
-returned a boolean and stopped at the first match.
-
-This is the general version. `Matcher` puts the patterns in the type and builds
-the trie, the failure links, and the output links while the type is analyzed,
-so a search allocates nothing. `Automaton` builds the same tables at runtime
-from a pattern list and an allocator. Both report a `Match` with a pattern id
-and a byte range, and three match kinds say which of several matches wins.
+haystack. `Matcher` puts the patterns in the type and builds the trie, the
+failure links, and the output links while the type is analyzed, so a search
+allocates nothing. `Automaton` builds the same tables at runtime from a pattern
+list and an allocator. Both report a `Match` with a pattern id and a byte
+range, and three match kinds say which of several matches wins.
 
 ```zig
-const ac = @import("aho-corasick");
+const Matcher = @import("aho-corasick").Matcher;
 
-const Keywords = ac.Matcher(&.{ "she", "he", "hers" }, .{});
+const Keywords = Matcher(&.{ "she", "he", "hers" }, .{});
 
 var it = Keywords.findOverlappingIter("ushers");
 while (it.next()) |m| {
@@ -81,7 +77,7 @@ separate 0.17 package, because libvaxis requires 0.17.
 - The [API reference](https://baskingspot.dev/aho-corasick/api/) documents every symbol.
 - [`examples/`](examples/README.md) has a complete scanner over the runtime automaton.
 - [`bench/README.md`](bench/README.md) has the dictionary, the haystacks, and the local baseline.
-- [`THIRD_PARTY.md`](THIRD_PARTY.md) records the Rust crate the API follows and the `moomd` code this grew from.
+- [`THIRD_PARTY.md`](THIRD_PARTY.md) records the Rust crate the API follows.
 
 ## Work on it
 
@@ -99,8 +95,7 @@ just bench             # local benchmark suite; see bench/README.md
 
 ## License
 
-MIT. See `LICENSE`. The Rust API and the `moomd` origin are recorded in
-[`THIRD_PARTY.md`](THIRD_PARTY.md). The logo files in `docs/static/` are
+MIT. See `LICENSE`. The Rust API is recorded in [`THIRD_PARTY.md`](THIRD_PARTY.md). The logo files in `docs/static/` are
 baskingspot marks and are not covered by it. See [`docs/static/LICENSE`](docs/static/LICENSE).
 
 ## How it's made

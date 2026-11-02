@@ -5,13 +5,10 @@ title = "aho-corasick"
 Aho-Corasick multi-pattern search in Zig, with the automaton built at comptime.
 
 Aho-Corasick finds every occurrence of a set of patterns in one pass over the
-haystack. The first version of this lived in `moomd`, where a fixed list of
-Postgres process states had to be classified from a log line. That one
-returned a boolean and stopped at the first match. This is the general version.
-`Matcher` puts the patterns in the type and builds the automaton at comptime,
-so a search allocates nothing. `Automaton` builds the same tables at runtime
-from a pattern list and an allocator, for dictionaries that are not known until
-the program runs.
+haystack. `Matcher` puts the patterns in the type and builds the automaton at
+comptime, so a search allocates nothing. `Automaton` builds the same tables at
+runtime from a pattern list and an allocator, for dictionaries that are not
+known until the program runs.
 
 Both report a `Match`: a pattern id and a byte range in the haystack. Three
 match kinds say which of several matches wins, the same three the Rust

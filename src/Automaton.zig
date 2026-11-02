@@ -247,6 +247,15 @@ pub fn init(
         own_id[state] = node.own_id;
     }
 
+    const root = try allocator.alloc(u32, 256);
+    for (0..256) |byte| {
+        const class = classes[byte];
+        root[byte] = if (class == alphabet_len or !masks[0].isSet(class))
+            0
+        else
+            children[TablesImpl.rank(masks[0], class)];
+    }
+
     const tables: TablesImpl = .{
         .failure = failure,
         .links = links,
@@ -257,6 +266,7 @@ pub fn init(
         .own_id = own_id,
         .classes = classes,
         .alphabet = alphabet_bytes,
+        .root = root,
         .pattern_lens = pattern_lens,
         .match_kind = options.match_kind,
         .no_id = no_id,
@@ -340,7 +350,7 @@ pub fn firstMatch(self: *const Automaton, state: State, end: usize) ?Match {
     return Search.firstMatch(&self.tables, state, end);
 }
 
-pub fn nextState(self: *const Automaton, state: State, byte: u8) State {
+pub inline fn nextState(self: *const Automaton, state: State, byte: u8) State {
     return self.tables.nextState(state, byte);
 }
 

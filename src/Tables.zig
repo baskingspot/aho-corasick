@@ -30,6 +30,10 @@ pub fn Tables(comptime State: type, comptime Mask: type) type {
         classes: [256]u16,
         /// The distinct pattern bytes, in class order.
         alphabet: []const u8,
+        /// The transition out of the root for every byte. An absent byte maps
+        /// to the root, so the first byte of a search does not need the class
+        /// lookup, the mask, or the popcount.
+        root: []const State,
         /// The length of each pattern, indexed by pattern id.
         pattern_lens: []const u32,
         match_kind: Options.MatchKind,
@@ -50,9 +54,10 @@ pub fn Tables(comptime State: type, comptime Mask: type) type {
             return @popCount(mask.mask & ((one << shift) - one));
         }
 
-        pub fn nextState(self: *const Self, state: State, byte: u8) State {
+        pub inline fn nextState(self: *const Self, state: State, byte: u8) State {
             const class = self.classes[byte];
             if (self.alphabetLen() != 256 and class == self.alphabetLen()) return 0;
+            if (state == 0) return self.root[byte];
 
             var current = state;
             while (!self.masks[current].isSet(class)) {

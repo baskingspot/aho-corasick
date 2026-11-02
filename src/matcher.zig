@@ -405,6 +405,18 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
         break :blk .{ .masks = masks, .offsets = offsets, .children = children };
     };
 
+    const root_next: [256]NodeIndex = blk: {
+        var out: [256]NodeIndex = @splat(0);
+        for (0..256) |byte| {
+            const class = classes[byte];
+            if (class == alphabet_bytes.len) continue;
+            if (compact.masks[0].isSet(class)) {
+                out[byte] = compact.children[rank(compact.masks[0], class)];
+            }
+        }
+        break :blk out;
+    };
+
     const TablesImpl = Tables(NodeIndex, Mask);
     const Search = Searcher(TablesImpl);
 
@@ -419,6 +431,7 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
             .own_id = trie.own_id[0..trie.node_count],
             .classes = classes,
             .alphabet = &alphabet_bytes,
+            .root = &root_next,
             .pattern_lens = &pattern_lens,
             .match_kind = options.match_kind,
             .no_id = no_id,
@@ -537,7 +550,7 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
             return Search.firstMatch(&tables, state, end);
         }
 
-        pub fn nextState(state: State, byte: u8) State {
+        pub inline fn nextState(state: State, byte: u8) State {
             return tables.nextState(state, byte);
         }
 

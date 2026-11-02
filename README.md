@@ -39,6 +39,8 @@ while (it.next()) |m| {
 - [The runtime automaton](https://baskingspot.dev/aho-corasick/#the-runtime-automaton): `Automaton` builds the same tables from a pattern list at runtime.
 - [Case folding](https://baskingspot.dev/aho-corasick/#case-folding): `ascii_case_insensitive` folds ASCII letters as byte classes, not extra trie branches.
 - [Inspect an automaton](https://baskingspot.dev/aho-corasick/#inspect-an-automaton): `just viz` prints the trie, a walk, and a libvaxis view.
+- [Design](https://baskingspot.dev/aho-corasick/#design): the compact tables, the failure and output links, and the one searcher both forms share.
+- [Performance](https://baskingspot.dev/aho-corasick/#performance): what the comptime build costs, and the memory the runtime automaton uses.
 
 Not implemented:
 

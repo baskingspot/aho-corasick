@@ -64,8 +64,8 @@ const m = automaton.find("ushers").?;
 
 Not implemented:
 
-- A terminal UI. `just viz` prints stats, the trie, Graphviz DOT, and a match
-  walk; there is no interactive view yet.
+- A two-dimensional graph layout. The TUI shows the trie as an indented list
+  with a details pane, not edges drawn across the screen.
 - Unicode case folding. `ascii_case_insensitive` folds ASCII letters only.
 - Empty patterns and duplicate patterns, including duplicates after folding,
   are compile errors.
@@ -91,7 +91,8 @@ Then import it:
 const ac = @import("aho-corasick");
 ```
 
-`aho-corasick` builds with Zig 0.16 and 0.17.
+`aho-corasick` builds with Zig 0.16 and 0.17. The `acviz` tool in `tools/` is
+a separate package and needs 0.17, because libvaxis does.
 
 ## Documentation
 
@@ -111,7 +112,7 @@ just viz tools/patterns.txt                 # the trie, with failure links and o
 just viz tools/patterns.txt -f stats        # pattern, state, and memory counts
 just viz tools/patterns.txt -f walk -t ushers  # one state per byte, with matches
 just viz tools/patterns.txt -f matches -t "append the app" -m leftmost-longest  # the spans a kind returns
-just viz-svg tools/patterns.txt             # DOT through Graphviz, if `dot` is on PATH
+just viz tools/patterns.txt -f tui -t ushers   # browse the trie and step the haystack
 ```
 
 ## License

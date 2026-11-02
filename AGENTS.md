@@ -30,10 +30,16 @@ access copies the array, so the builder writes each table once, copies it to a
 `const`, and reads only the `const`. Keep that shape; see `research/` in
 `baskingspot/internal` for the measurements.
 
-`tools/acviz.zig` is the inspection tool. It uses `baskingspot/cli`, pinned by
-commit in `build.zig.zon` until the release that carries the 0.17 build-script
-fix. A consumer never fetches it or `cli`: the build returns before either is
-registered, and both are lazy.
+`tools/` is a separate package: `tools/build.zig` and `tools/build.zig.zon`
+build `acviz` against the library, `baskingspot/cli`, and `libvaxis`. It needs
+Zig 0.17 because libvaxis does, so `just check` on `zig-old` does not build it;
+`viz-smoke` runs in `ci` on the default shell. `just viz` builds the tool and
+runs the binary from the repo root, so pattern paths are repo-relative.
+
+`cli` and `libvaxis` are pinned by commit in `tools/build.zig.zon` until their
+next releases. They are not in the library's manifest, so a consumer fetches
+neither. `tools/zig-pkg/` is the tool's fetch directory; keep it out of the
+linters by listing the tool's source files in `.ziglint.zon` and the justfile.
 
 ## Rules
 

@@ -1,0 +1,26 @@
+.{
+    .name = .acviz,
+    .version = "0.0.0",
+    .fingerprint = 0x1f70ad23f2cc6010,
+    .minimum_zig_version = "0.17.0",
+    .dependencies = .{
+        .aho_corasick = .{
+            .path = "..",
+        },
+        .cli = .{
+            .url = "git+https://github.com/baskingspot/cli#c9f1259156a8fcefcd6a2360643474dae9a26dbc",
+            .hash = "cli-0.3.0-nGM5mxEWAQBQygP_PBKB2vPJdyYuYmXgHHxgKtlU3K3Y",
+        },
+        .vaxis = .{
+            .url = "git+https://github.com/rockorager/libvaxis#0620b34e091deaa6f64608922be3814147128dfb",
+            .hash = "vaxis-0.6.0-BWNV_LoTDQCQSGhvBbu_-fOf3I2P3TIiGaUzCDniO12E",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "acviz.zig",
+        "tui.zig",
+        "patterns.txt",
+    },
+}

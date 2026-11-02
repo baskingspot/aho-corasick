@@ -6,19 +6,20 @@
 const std = @import("std");
 const cli = @import("cli");
 const ac = @import("aho-corasick");
+const tui = @import("tui.zig");
 
 const Io = std.Io;
 const Allocator = std.mem.Allocator;
 const print = std.debug.print;
 
-const Format = enum { tree, dot, stats, walk, matches };
+const Format = enum { tree, dot, stats, walk, matches, tui };
 
 const usage_text =
     \\acviz: inspect an Aho-Corasick automaton.
     \\
     \\usage: acviz <patterns-file> [options]
     \\
-    \\  -f, --format <format>    tree, dot, stats, walk, or matches (default: tree)
+    \\  -f, --format <format>    tree, dot, stats, walk, matches, or tui (default: tree)
     \\  -t, --haystack <text>    the text to walk; required by -f walk
     \\  -m, --match-kind <kind>  standard, leftmost-first, or leftmost-longest
     \\  -i, --ignore-case        fold ASCII case
@@ -51,7 +52,7 @@ pub fn main(init: std.process.Init) !void {
                 pattern_path = parser.takeValue(opt) orelse fail("-p needs a file");
             } else if (opt.is("format", 'f')) {
                 format = parseFormat(parser.takeValue(opt) orelse fail("-f needs a format")) orelse
-                    fail("unknown format; use tree, dot, stats, walk, or matches");
+                    fail("unknown format; use tree, dot, stats, walk, matches, or tui");
             } else if (opt.is("haystack", 't')) {
                 haystack = parser.takeValue(opt) orelse fail("-t needs text");
             } else if (opt.is("match-kind", 'm')) {
@@ -115,6 +116,7 @@ pub fn main(init: std.process.Init) !void {
         .dot => try writeDot(writer, &automaton),
         .walk => try writeWalk(writer, &automaton, haystack),
         .matches => try writeMatches(writer, &automaton, haystack),
+        .tui => try tui.run(init, &automaton, if (haystack.len != 0) haystack else null),
     }
 }
 
@@ -129,6 +131,7 @@ fn parseFormat(raw: []const u8) ?Format {
     if (std.mem.eql(u8, raw, "stats")) return .stats;
     if (std.mem.eql(u8, raw, "walk")) return .walk;
     if (std.mem.eql(u8, raw, "matches")) return .matches;
+    if (std.mem.eql(u8, raw, "tui")) return .tui;
     return null;
 }
 

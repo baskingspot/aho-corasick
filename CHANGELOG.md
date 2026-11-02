@@ -13,3 +13,6 @@ All notable changes to aho-corasick are recorded here. The format follows
   `deinit`.
 - `acviz`, a developer tool that prints the automaton's stats, trie, Graphviz
   DOT, or a walk over a haystack (`just viz`).
+- The `acviz` terminal view with libvaxis: browse the trie and step a haystack
+  through it (`just viz <patterns> -f tui -t <text>`). The tool is a separate
+  0.17 package under `tools/`.

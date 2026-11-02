@@ -1,3 +1,10 @@
 .{
-    .paths = .{ "build.zig", "src", "test", "tools" },
+    .paths = .{
+        "build.zig",
+        "src",
+        "test",
+        "tools/acviz.zig",
+        "tools/tui.zig",
+        "tools/build.zig",
+    },
 }

@@ -23,12 +23,13 @@ const math = std.math;
 const testing = std.testing;
 const ascii = std.ascii;
 const Io = std.Io;
-const Match = @import("Match.zig");
+
 const compat = @import("compat.zig");
-const Options = @import("Options.zig").Options;
+const Match = @import("Match.zig");
 const MatchKind = @import("Options.zig").MatchKind;
-const Tables = @import("Tables.zig").Tables;
+const Options = @import("Options.zig").Options;
 const Searcher = @import("Search.zig").Searcher;
+const Tables = @import("Tables.zig").Tables;
 
 /// Builds a matcher for `patterns` at comptime.
 ///
@@ -162,6 +163,8 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
     };
 
     const Trie = struct {
+        const Self = @This();
+
         first_child: [max_nodes]NodeIndex,
         next_sibling: [max_edges]NodeIndex,
         edge_byte: [max_edges]u8,
@@ -173,6 +176,14 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
         own_id: [max_nodes]u32,
         node_count: u32,
         edge_count: u32,
+
+        fn walk(self: Self, node: NodeIndex, byte: u8) NodeIndex {
+            var edge = self.first_child[node];
+            while (edge != none and self.edge_byte[edge] != byte) {
+                edge = self.next_sibling[edge];
+            }
+            return if (edge == none) none else self.edge_to[edge];
+        }
     };
 
     const trie: Trie = blk: {
@@ -236,14 +247,6 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
         };
     };
 
-    const Walk = struct {
-        fn child(self: Trie, node: NodeIndex, byte: u8) NodeIndex {
-            var edge = self.first_child[node];
-            while (edge != none and self.edge_byte[edge] != byte) : (edge = self.next_sibling[edge]) {}
-            return if (edge == none) none else self.edge_to[edge];
-        }
-    };
-
     const alphabet_bytes = blk: {
         var seen: [256]bool = @splat(false);
         for (0..trie.edge_count) |edge| seen[trie.edge_byte[edge]] = true;
@@ -261,17 +264,16 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
         }
         break :blk list;
     };
-    const alphabet_len = alphabet_bytes.len;
 
-    const Mask = compat.Integer(@intCast(alphabet_len));
+    const Mask = compat.Integer(@intCast(alphabet_bytes.len));
 
-    const Rank = struct {
+    const rank = struct {
         fn rank(mask: Mask, index: usize) usize {
             const shift: Mask.ShiftInt = @intCast(index);
             const one: Mask.MaskInt = 1;
             return @popCount(mask.mask & ((one << shift) - one));
         }
-    };
+    }.rank;
 
     // Nodes grouped by depth. Failure links go to strictly shallower nodes,
     // so the build walks one level at a time and never re-reads the array it
@@ -319,7 +321,7 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
                 const byte = trie.in_byte[node];
                 var f = previous[trie.parent[node]];
                 while (true) {
-                    const candidate = Walk.child(trie, f, byte);
+                    const candidate = trie.walk(f, byte);
                     if (candidate != none) {
                         level[node] = candidate;
                         break;
@@ -352,7 +354,7 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
     };
 
     const classes: [256]u16 = blk: {
-        var table: [256]u16 = @splat(@as(u16, @intCast(alphabet_len)));
+        var table: [256]u16 = @splat(@as(u16, @intCast(alphabet_bytes.len)));
         for (&table, 0..) |*class, byte| {
             const folded_byte = fold_table[@intCast(byte)];
             for (alphabet_bytes, 0..) |candidate, index| {
@@ -395,7 +397,7 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
             edge = trie.first_child[node];
             while (edge != none) : (edge = trie.next_sibling[edge]) {
                 const class = classes[trie.edge_byte[edge]];
-                children[packed_len + Rank.rank(mask, class)] = trie.edge_to[edge];
+                children[packed_len + rank(mask, class)] = trie.edge_to[edge];
             }
             packed_len += mask.count();
         }
@@ -474,7 +476,7 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
             const depths_size = max_nodes * @sizeOf(u16);
             const own_id_size = max_nodes * @sizeOf(u32);
             const classes_size = 256 * @sizeOf(u16);
-            const alphabet_size = alphabet_len * @sizeOf(u8);
+            const alphabet_size = alphabet_bytes.len * @sizeOf(u8);
             return .{
                 .total = failure_size + links_size + masks_size + offsets_size +
                     children_size + depths_size + own_id_size + classes_size + alphabet_size,
@@ -553,7 +555,7 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
         }
 
         /// Non-overlapping matches according to `matchKind()`.
-        pub fn findIter(haystack: []const u8) Search.Iter {
+        pub fn findIter(haystack: []const u8) Search.Iterator {
             return Search.findIter(&tables, haystack);
         }
 
@@ -565,7 +567,7 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
 
         /// Every match, including overlapping ones, in end-offset order.
         /// Only for `.standard`.
-        pub fn findOverlappingIter(haystack: []const u8) Search.OverlappingIter {
+        pub fn findOverlappingIter(haystack: []const u8) Search.OverlappingIterator {
             comptime requireStandard("findOverlappingIter");
             return Search.findOverlappingIter(&tables, haystack);
         }

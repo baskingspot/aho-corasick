@@ -5,7 +5,7 @@ Working notes for AI coding agents in baskingspot/aho-corasick.
 ## What this is
 
 Aho-Corasick multi-pattern search in Zig, with the automaton built at comptime.
-It is incubating: unstable, with no promises about its API.
+The public API is `src/root.zig`; the guide is `docs/content/_index.md`.
 
 ## Environment
 
@@ -13,9 +13,10 @@ Zig 0.16 and 0.17. The default shell is 0.17; `nix develop .#zig-old` is 0.16.
 The flake is the tool contract, from `baskingspot/nix`: `nix develop` provides
 Zig, `ziglint-0-16`, and the base tools, and nothing comes from the system
 PATH. The justfile is the command interface: `just test`, `just check`,
-`just lint`, `just ci`. `just ci` is the full gate on the default shell;
-`just check` on `zig-old` is the compatibility lane. Run `just fmt` before you
-commit.
+`just lint`, `just ci`. `just ci` is the full gate on the default shell: the test matrix, examples,
+lint, the tool, and the docs build. `just check` on `zig-old` is the
+compatibility lane; it builds the examples too and does not build the tool or
+the docs. Run `just fmt` before you commit.
 
 Version differences go in `src/compat.zig`, behind a shape probe (`@hasDecl`,
 `@hasField`), never in the public API. The build API probe for
@@ -41,13 +42,19 @@ next releases. They are not in the library's manifest, so a consumer fetches
 neither. `tools/zig-pkg/` is the tool's fetch directory; keep it out of the
 linters by listing the tool's source files in `.ziglint.zon` and the justfile.
 
+`docs/content/` is the guide and `docs/examples/root.zig` holds its tests, so a
+page cannot show code that does not build. `examples/scan.zig` is the standalone
+scanner; `just examples` builds it. The site is registered in
+`baskingspot/site` and deployed as an assets-only Worker from `wrangler.jsonc`;
+`just doc` builds it, and `just doc-deploy` needs `CLOUDFLARE_API_TOKEN`.
+
 ## Rules
 
 - Commit messages are one line, `area: summary`, and every commit is signed. Do not rewrite pushed history.
 - Gate commands on their exit codes, and claim only what you ran.
 - Format with `zig fmt` and lint with `ziglint-0-16`. `just fmt` and `just lint` run both.
 - This repo's GitHub settings come from `baskingspot/.github`, with `just settings`. Do not change them by hand.
-- To graduate the project, follow the `baskingspot-new-repo` skill: logos, a real README, and the audit passing.
+- The audit is `just audit aho-corasick` from `baskingspot/.github`; it checks the README and guide headings, the About text, the topics, the install form, and the shared settings.
 
 ## Changelog
 

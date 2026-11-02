@@ -77,7 +77,7 @@ pub fn Searcher(comptime T: type) type {
         }
 
         /// Non-overlapping matches according to the tables' match kind.
-        pub const Iter = struct {
+        pub const Iterator = struct {
             tables: *const T,
             haystack: []const u8,
             at: usize,
@@ -85,14 +85,14 @@ pub fn Searcher(comptime T: type) type {
             state: State,
             node: State,
 
-            pub fn next(self: *Iter) ?Match {
+            pub fn next(self: *Iterator) ?Match {
                 return switch (self.tables.match_kind) {
                     .standard => self.nextStandard(),
                     .leftmost_first, .leftmost_longest => self.nextLeftmost(),
                 };
             }
 
-            fn nextStandard(self: *Iter) ?Match {
+            fn nextStandard(self: *Iterator) ?Match {
                 while (true) {
                     if (self.node != self.tables.none) {
                         const node = self.node;
@@ -120,7 +120,7 @@ pub fn Searcher(comptime T: type) type {
                 }
             }
 
-            fn nextLeftmost(self: *Iter) ?Match {
+            fn nextLeftmost(self: *Iterator) ?Match {
                 if (self.at == self.haystack.len) return null;
 
                 var state: State = 0;
@@ -162,7 +162,7 @@ pub fn Searcher(comptime T: type) type {
                 return null;
             }
 
-            fn isBetter(self: *Iter, a: Match, b: Match) bool {
+            fn isBetter(self: *Iterator, a: Match, b: Match) bool {
                 if (a.start != b.start) return a.start < b.start;
                 return switch (self.tables.match_kind) {
                     .leftmost_first => a.pattern < b.pattern,
@@ -175,7 +175,7 @@ pub fn Searcher(comptime T: type) type {
             }
         };
 
-        pub fn findIter(t: *const T, haystack: []const u8) Iter {
+        pub fn findIter(t: *const T, haystack: []const u8) Iterator {
             return .{
                 .tables = t,
                 .haystack = haystack,
@@ -197,7 +197,7 @@ pub fn Searcher(comptime T: type) type {
 
         /// Every match, including overlapping ones, in end-offset order. At
         /// one end offset the longest match comes first.
-        pub const OverlappingIter = struct {
+        pub const OverlappingIterator = struct {
             tables: *const T,
             haystack: []const u8,
             at: usize,
@@ -205,7 +205,7 @@ pub fn Searcher(comptime T: type) type {
             state: State,
             node: State,
 
-            pub fn next(self: *OverlappingIter) ?Match {
+            pub fn next(self: *OverlappingIterator) ?Match {
                 while (true) {
                     if (self.node != self.tables.none) {
                         const node = self.node;
@@ -229,7 +229,7 @@ pub fn Searcher(comptime T: type) type {
             }
         };
 
-        pub fn findOverlappingIter(t: *const T, haystack: []const u8) OverlappingIter {
+        pub fn findOverlappingIter(t: *const T, haystack: []const u8) OverlappingIterator {
             requireStandard(t, "findOverlappingIter");
             return .{
                 .tables = t,

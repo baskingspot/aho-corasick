@@ -43,6 +43,34 @@ pub fn build(b: *std.Build) void {
     const run_fuzz = b.addRunArtifact(fuzz_tests);
     passthruArgs(b, run_fuzz);
     test_step.dependOn(&run_fuzz.step);
+
+    // The guide's examples are tests, so a page cannot show code that does
+    // not build.
+    const guide_mod = b.createModule(.{
+        .root_source_file = b.path("docs/examples/root.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "aho-corasick", .module = mod }},
+    });
+    const guide_tests = b.addTest(.{ .root_module = guide_mod, .test_runner = test_runner });
+    const run_guide = b.addRunArtifact(guide_tests);
+    passthruArgs(b, run_guide);
+    test_step.dependOn(&run_guide.step);
+
+    // The example program. It uses the runtime automaton because the patterns
+    // are read from a file.
+    const scan = b.addExecutable(.{
+        .name = "scan",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("examples/scan.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{.{ .name = "aho-corasick", .module = mod }},
+        }),
+    });
+    b.installArtifact(scan);
+    const examples_step = b.step("examples", "Build the example programs");
+    examples_step.dependOn(b.getInstallStep());
 }
 
 /// `b.args` (removed in Zig 0.17) and `Run.addPassthruArgs` are the same

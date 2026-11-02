@@ -4,13 +4,14 @@
 //! its trie, Graphviz DOT, or a walk over a haystack.
 
 const std = @import("std");
-const cli = @import("cli");
-const ac = @import("aho-corasick");
-const tui = @import("tui.zig");
-
 const Io = std.Io;
 const Allocator = std.mem.Allocator;
 const print = std.debug.print;
+
+const ac = @import("aho-corasick");
+const cli = @import("cli");
+
+const tui = @import("tui.zig");
 
 const Format = enum { tree, dot, stats, walk, matches, tui };
 
@@ -33,7 +34,7 @@ const usage_text =
 
 pub fn main(init: std.process.Init) !void {
     const arena = init.arena.allocator();
-    var parser = try cli.Args.initAllocator(init.minimal.args, arena);
+    var parser: cli.Args = try .initAllocator(init.minimal.args, arena);
 
     var pattern_path: ?[]const u8 = null;
     var format: Format = .tree;
@@ -110,14 +111,14 @@ pub fn main(init: std.process.Init) !void {
     };
     defer automaton.deinit();
 
-    switch (format) {
-        .stats => try writeStats(writer, &automaton, path),
-        .tree => try writeTree(writer, &automaton),
-        .dot => try writeDot(writer, &automaton),
-        .walk => try writeWalk(writer, &automaton, haystack),
-        .matches => try writeMatches(writer, &automaton, haystack),
-        .tui => try tui.run(init, &automaton, if (haystack.len != 0) haystack else null),
-    }
+    try switch (format) {
+        .stats => writeStats(writer, &automaton, path),
+        .tree => writeTree(writer, &automaton),
+        .dot => writeDot(writer, &automaton),
+        .walk => writeWalk(writer, &automaton, haystack),
+        .matches => writeMatches(writer, &automaton, haystack),
+        .tui => tui.run(init, &automaton, if (haystack.len != 0) haystack else null),
+    };
 }
 
 fn fail(comptime message: []const u8) noreturn {
@@ -126,13 +127,7 @@ fn fail(comptime message: []const u8) noreturn {
 }
 
 fn parseFormat(raw: []const u8) ?Format {
-    if (std.mem.eql(u8, raw, "tree")) return .tree;
-    if (std.mem.eql(u8, raw, "dot")) return .dot;
-    if (std.mem.eql(u8, raw, "stats")) return .stats;
-    if (std.mem.eql(u8, raw, "walk")) return .walk;
-    if (std.mem.eql(u8, raw, "matches")) return .matches;
-    if (std.mem.eql(u8, raw, "tui")) return .tui;
-    return null;
+    return std.meta.stringToEnum(Format, raw);
 }
 
 fn kindName(kind: ac.MatchKind) []const u8 {

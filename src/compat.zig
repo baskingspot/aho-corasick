@@ -14,6 +14,12 @@ pub const Static = if (@hasDecl(std.bit_set, "Static"))
 else
     std.bit_set.StaticBitSet;
 
+/// Zig 0.17 renamed `DynamicBitSetUnmanaged` to `Dynamic`.
+pub const Dynamic = if (@hasDecl(std.bit_set, "Dynamic"))
+    std.bit_set.Dynamic
+else
+    std.bit_set.DynamicBitSetUnmanaged;
+
 /// Zig 0.17 turned `initEmpty` into the `empty` constant.
 pub fn empty(comptime T: type) T {
     return if (@hasDecl(T, "empty")) T.empty else T.initEmpty();

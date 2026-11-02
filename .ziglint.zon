@@ -6,5 +6,10 @@
         "tools/acviz.zig",
         "tools/tui.zig",
         "tools/build.zig",
+        "docs/examples/root.zig",
+        "examples/scan.zig",
+    },
+    .rules = .{
+        .Z024 = .{ .max_length = 100 },
     },
 }

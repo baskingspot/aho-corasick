@@ -17,6 +17,7 @@
       # lane and for local checks.
       imports = with inputs.baskingspot.flakeModules; [
         base
+        docs
         zig."0.16"
         zig."0.17"
       ];
@@ -27,6 +28,7 @@
           devShells.default = pkgs.mkShell {
             inputsFrom = [
               config.devShells.base
+              config.devShells.docs
               config.devShells."zig-0-17"
             ];
             packages = [ config.packages."ziglint-0-16" ];

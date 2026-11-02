@@ -9,19 +9,26 @@ const std = @import("std");
 const ascii = std.ascii;
 const testing = std.testing;
 const Allocator = std.mem.Allocator;
+const math = std.math;
+const ArenaAllocator = std.heap.ArenaAllocator;
+
+const compat = @import("compat.zig");
 const Match = @import("Match.zig");
-const Options = @import("Options.zig").Options;
+const Matcher = @import("matcher.zig").Matcher;
 const MatchKind = @import("Options.zig").MatchKind;
+const Options = @import("Options.zig").Options;
 const Searcher = @import("Search.zig").Searcher;
 const Tables = @import("Tables.zig").Tables;
-const compat = @import("compat.zig");
 
 const Automaton = @This();
 
-const no_id: u32 = std.math.maxInt(u32);
-const none: u32 = std.math.maxInt(u32);
+const no_id: u32 = math.maxInt(u32);
+const none: u32 = math.maxInt(u32);
 
 pub const State = u32;
+
+/// The state before any byte has been read.
+pub const start_state: State = 0;
 const Mask = compat.Integer(256);
 const TablesImpl = Tables(State, Mask);
 const Search = Searcher(TablesImpl);
@@ -35,7 +42,7 @@ pub const Error = error{
     OutOfMemory,
 };
 
-arena: std.heap.ArenaAllocator,
+arena: ArenaAllocator,
 tables: TablesImpl,
 pattern_bytes: []const u8,
 pattern_starts: []const u32,
@@ -48,17 +55,17 @@ pub fn init(
     options: Options,
 ) Error!Automaton {
     if (patterns.len == 0) return error.NoPatterns;
-    if (patterns.len > std.math.maxInt(u32) - 1) return error.TooManyPatterns;
+    if (patterns.len > math.maxInt(u32) - 1) return error.TooManyPatterns;
 
     var total: usize = 0;
     for (patterns) |bytes| {
         if (bytes.len == 0) return error.EmptyPattern;
-        if (bytes.len > std.math.maxInt(u16)) return error.PatternTooLong;
-        total = std.math.add(usize, total, bytes.len) catch return error.PatternTooLong;
+        if (bytes.len > math.maxInt(u16)) return error.PatternTooLong;
+        total = math.add(usize, total, bytes.len) catch return error.PatternTooLong;
     }
-    if (total >= std.math.maxInt(u32)) return error.PatternTooLong;
+    if (total >= math.maxInt(u32)) return error.PatternTooLong;
 
-    var arena: std.heap.ArenaAllocator = .init(gpa);
+    var arena: ArenaAllocator = .init(gpa);
     errdefer arena.deinit();
     const allocator = arena.allocator();
 
@@ -282,7 +289,7 @@ pub fn patternLen(self: *const Automaton, id: u32) usize {
 }
 
 pub fn minPatternLen(self: *const Automaton) usize {
-    var min: usize = std.math.maxInt(usize);
+    var min: usize = math.maxInt(usize);
     for (self.tables.pattern_lens) |len| min = @min(min, len);
     return min;
 }
@@ -349,7 +356,7 @@ pub fn isMatch(self: *const Automaton, haystack: []const u8) bool {
     return Search.isMatch(&self.tables, haystack);
 }
 
-pub fn findIter(self: *const Automaton, haystack: []const u8) Search.Iter {
+pub fn findIter(self: *const Automaton, haystack: []const u8) Search.Iterator {
     return Search.findIter(&self.tables, haystack);
 }
 
@@ -357,16 +364,15 @@ pub fn findOverlapping(self: *const Automaton, haystack: []const u8) ?Match {
     return Search.findOverlapping(&self.tables, haystack);
 }
 
-pub fn findOverlappingIter(self: *const Automaton, haystack: []const u8) Search.OverlappingIter {
+pub fn findOverlappingIter(
+    self: *const Automaton,
+    haystack: []const u8,
+) Search.OverlappingIterator {
     return Search.findOverlappingIter(&self.tables, haystack);
 }
 
-pub fn whichMatches(
-    self: *const Automaton,
-    gpa: Allocator,
-    haystack: []const u8,
-) !std.bit_set.DynamicBitSetUnmanaged {
-    var set = try std.bit_set.DynamicBitSetUnmanaged.initEmpty(gpa, self.patternCount());
+pub fn whichMatches(self: *const Automaton, gpa: Allocator, haystack: []const u8) !compat.Dynamic {
+    var set: compat.Dynamic = try .initEmpty(gpa, self.patternCount());
     errdefer set.deinit(gpa);
     var iter = self.findOverlappingIter(haystack);
     while (iter.next()) |m| set.set(m.pattern);
@@ -399,7 +405,7 @@ pub fn memoryUsage(self: *const Automaton) usize {
 }
 
 test "runtime finds a pattern and its span" {
-    var automaton = try Automaton.init(testing.allocator, &.{ "apple", "maple" }, .{});
+    var automaton: Automaton = try .init(testing.allocator, &.{ "apple", "maple" }, .{});
     defer automaton.deinit();
 
     const m = automaton.find("a maple leaf").?;
@@ -415,8 +421,9 @@ test "runtime iteration matches the comptime matcher" {
     const patterns = &.{ "append", "appendage", "app" };
     const haystack = "append the app to the appendage";
 
-    const Static = @import("Matcher.zig").Matcher(patterns, .{ .match_kind = .leftmost_longest });
-    var automaton = try Automaton.init(testing.allocator, patterns, .{ .match_kind = .leftmost_longest });
+    const opt: Options = .{ .match_kind = .leftmost_longest };
+    const Static = Matcher(patterns, opt);
+    var automaton: Automaton = try .init(testing.allocator, patterns, opt);
     defer automaton.deinit();
 
     var want = Static.findIter(haystack);
@@ -431,7 +438,7 @@ test "runtime iteration matches the comptime matcher" {
 }
 
 test "runtime overlapping matches" {
-    var automaton = try Automaton.init(testing.allocator, &.{ "he", "she", "hers" }, .{});
+    var automaton: Automaton = try .init(testing.allocator, &.{ "he", "she", "hers" }, .{});
     defer automaton.deinit();
 
     var iter = automaton.findOverlappingIter("ushers");
@@ -463,7 +470,7 @@ test "runtime rejects the pattern lists the comptime builder rejects" {
 }
 
 test "runtime case folding" {
-    var automaton = try Automaton.init(
+    var automaton: Automaton = try .init(
         testing.allocator,
         &.{"WaRnInG"},
         .{ .ascii_case_insensitive = true },
@@ -476,7 +483,7 @@ test "runtime case folding" {
 }
 
 test "runtime inspection" {
-    var automaton = try Automaton.init(testing.allocator, &.{ "she", "he", "hers" }, .{});
+    var automaton: Automaton = try .init(testing.allocator, &.{ "she", "he", "hers" }, .{});
     defer automaton.deinit();
 
     var state: Automaton.State = 0;

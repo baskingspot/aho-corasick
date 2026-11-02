@@ -393,7 +393,8 @@ plus the failure, output, offset, depth, and pattern tables.
 This guide makes no search-throughput claim. The cost per byte is one class
 lookup and a short failure walk; the walk is O(1) for most inputs and O(depth)
 in the worst case. Measure your own dictionary and haystack before depending on
-a number.
+a number. `just bench` runs the local suite, and `bench/README.md` records the
+method and the baseline.
 
 # Limits
 

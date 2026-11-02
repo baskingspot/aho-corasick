@@ -27,7 +27,7 @@ lint:
     baskingspot-lint src test tools/acviz.zig tools/tui.zig tools/build.zig docs/examples examples
     zig fmt --check src test tools/acviz.zig tools/tui.zig tools/build.zig docs/examples examples build.zig build.zig.zon tools/build.zig.zon
     nix fmt -- --ci
-    oxfmt --check README.md AGENTS.md CHANGELOG.md THIRD_PARTY.md examples/README.md docs/content docs/config.toml docs/static .github
+    oxfmt --check README.md AGENTS.md CHANGELOG.md THIRD_PARTY.md examples/README.md bench/README.md docs/content docs/config.toml docs/static .github
     actionlint
     zizmor .
     just --fmt --check
@@ -37,7 +37,7 @@ lint:
 fmt:
     zig fmt src test tools/acviz.zig tools/tui.zig tools/build.zig docs/examples examples build.zig build.zig.zon tools/build.zig.zon
     nix fmt
-    oxfmt README.md AGENTS.md CHANGELOG.md THIRD_PARTY.md examples/README.md docs/content docs/config.toml docs/static .github
+    oxfmt README.md AGENTS.md CHANGELOG.md THIRD_PARTY.md examples/README.md bench/README.md docs/content docs/config.toml docs/static .github
     just --fmt
 
 [doc("Build the site into zig-out/site/aho-corasick/: the guide (Zola, from docs/) and the API reference (docgen JSON, rendered by the theme's api.html) under api/. The router in baskingspot/site serves /aho-corasick/... from it")]

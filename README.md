@@ -79,6 +79,7 @@ separate 0.17 package, because libvaxis requires 0.17.
 - The [guide](https://baskingspot.dev/aho-corasick/) has the recipes, and every example compiles.
 - The [API reference](https://baskingspot.dev/aho-corasick/api/) documents every symbol.
 - [`examples/`](examples/README.md) has a complete scanner over the runtime automaton.
+- [`bench/README.md`](bench/README.md) has the dictionary, the haystacks, and the local baseline.
 - [`THIRD_PARTY.md`](THIRD_PARTY.md) records the Rust crate the API follows and the `moomd` code this grew from.
 
 ## Work on it
@@ -90,6 +91,7 @@ just ci                # the full gate: tests, lint, and the docs build
 just check             # the test matrix and the examples, for the compatibility shell
 just viz tools/patterns.txt -f tui -t ushers  # browse the automaton
 just examples          # build the scanner in examples/
+just bench             # local benchmark suite; see bench/README.md
 ```
 
 `just` lists every recipe.

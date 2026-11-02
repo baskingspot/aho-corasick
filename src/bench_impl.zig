@@ -136,6 +136,7 @@ pub fn benchmarkNextStateMiss(b: *testingx.B) !void {
 }
 
 pub fn benchmarkComptimeFindMiss(b: *testingx.B) !void {
+    try b.reportMetric(@floatFromInt(Matcher.memoryUsage()), "bytes");
     try findBytes(Matcher.find, &miss_text, b);
 }
 
@@ -144,6 +145,7 @@ pub fn benchmarkComptimeIsMatchMiss(b: *testingx.B) !void {
 }
 
 pub fn benchmarkComptimeFindIterDense(b: *testingx.B) !void {
+    try b.reportMetric(@floatFromInt(Matcher.memoryUsage()), "bytes");
     const hidden = b.blackBox(&dense_text);
     b.setBytes(dense_text.len);
     b.reportCounters();
@@ -170,6 +172,7 @@ pub fn benchmarkLeftmostFindIterDense(b: *testingx.B) !void {
 pub fn benchmarkRuntimeFindIterDense(b: *testingx.B) !void {
     var automaton = try ac.Automaton.init(std.heap.page_allocator, &patterns, .{});
     defer automaton.deinit();
+    try b.reportMetric(@floatFromInt(automaton.memoryUsage()), "bytes");
 
     const hidden = b.blackBox(&dense_text);
     b.setBytes(dense_text.len);
@@ -185,6 +188,7 @@ pub fn benchmarkRuntimeFindIterDense(b: *testingx.B) !void {
 pub fn benchmarkRuntimeFindMiss(b: *testingx.B) !void {
     var automaton = try ac.Automaton.init(std.heap.page_allocator, &patterns, .{});
     defer automaton.deinit();
+    try b.reportMetric(@floatFromInt(automaton.memoryUsage()), "bytes");
 
     const hidden = b.blackBox(&miss_text);
     b.setBytes(miss_text.len);

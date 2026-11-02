@@ -11,14 +11,14 @@ const Io = std.Io;
 const Allocator = std.mem.Allocator;
 const print = std.debug.print;
 
-const Format = enum { tree, dot, stats, walk };
+const Format = enum { tree, dot, stats, walk, matches };
 
 const usage_text =
     \\acviz: inspect an Aho-Corasick automaton.
     \\
     \\usage: acviz <patterns-file> [options]
     \\
-    \\  -f, --format <format>    tree, dot, stats, or walk (default: tree)
+    \\  -f, --format <format>    tree, dot, stats, walk, or matches (default: tree)
     \\  -t, --haystack <text>    the text to walk; required by -f walk
     \\  -m, --match-kind <kind>  standard, leftmost-first, or leftmost-longest
     \\  -i, --ignore-case        fold ASCII case
@@ -51,7 +51,7 @@ pub fn main(init: std.process.Init) !void {
                 pattern_path = parser.takeValue(opt) orelse fail("-p needs a file");
             } else if (opt.is("format", 'f')) {
                 format = parseFormat(parser.takeValue(opt) orelse fail("-f needs a format")) orelse
-                    fail("unknown format; use tree, dot, stats, or walk");
+                    fail("unknown format; use tree, dot, stats, walk, or matches");
             } else if (opt.is("haystack", 't')) {
                 haystack = parser.takeValue(opt) orelse fail("-t needs text");
             } else if (opt.is("match-kind", 'm')) {
@@ -81,8 +81,8 @@ pub fn main(init: std.process.Init) !void {
         try writer.writeAll(usage_text);
         return;
     };
-    if (format == .walk and haystack.len == 0) {
-        fail("walk needs a haystack: -t <text>");
+    if ((format == .walk or format == .matches) and haystack.len == 0) {
+        fail("walk and matches need a haystack: -t <text>");
     }
 
     const text = Io.Dir.cwd().readFileAlloc(
@@ -114,6 +114,7 @@ pub fn main(init: std.process.Init) !void {
         .tree => try writeTree(writer, &automaton),
         .dot => try writeDot(writer, &automaton),
         .walk => try writeWalk(writer, &automaton, haystack),
+        .matches => try writeMatches(writer, &automaton, haystack),
     }
 }
 
@@ -127,7 +128,16 @@ fn parseFormat(raw: []const u8) ?Format {
     if (std.mem.eql(u8, raw, "dot")) return .dot;
     if (std.mem.eql(u8, raw, "stats")) return .stats;
     if (std.mem.eql(u8, raw, "walk")) return .walk;
+    if (std.mem.eql(u8, raw, "matches")) return .matches;
     return null;
+}
+
+fn kindName(kind: ac.MatchKind) []const u8 {
+    return switch (kind) {
+        .standard => "standard",
+        .leftmost_first => "leftmost-first",
+        .leftmost_longest => "leftmost-longest",
+    };
 }
 
 fn parseKind(raw: []const u8) ?ac.MatchKind {
@@ -166,7 +176,7 @@ fn writeStats(w: *Io.Writer, automaton: *const ac.Automaton, source: []const u8)
     });
     try w.print("memory: {d} bytes ({d} per state)\n", .{ memory, memory / states });
     try w.print("alphabet: {d} distinct bytes\n", .{automaton.alphabet().len});
-    try w.print("match kind: {s}\n", .{@tagName(automaton.matchKind())});
+    try w.print("match kind: {s}\n", .{kindName(automaton.matchKind())});
 }
 
 fn writeTree(w: *Io.Writer, automaton: *const ac.Automaton) !void {
@@ -262,6 +272,22 @@ fn writeWalk(w: *Io.Writer, automaton: *const ac.Automaton, haystack: []const u8
             try w.print("\" at {d}..{d}\n", .{ m.start, m.end });
         }
     }
+}
+
+fn writeMatches(w: *Io.Writer, automaton: *const ac.Automaton, haystack: []const u8) !void {
+    try w.writeAll("haystack: \"");
+    try writeEscaped(w, haystack);
+    try w.print("\"\nkind: {s}\n", .{kindName(automaton.matchKind())});
+
+    var iter = automaton.findIter(haystack);
+    var count: usize = 0;
+    while (iter.next()) |m| {
+        count += 1;
+        try w.print("  {d}: \"", .{count});
+        try writeEscaped(w, automaton.pattern(m.pattern));
+        try w.print("\" at {d}..{d}\n", .{ m.start, m.end });
+    }
+    if (count == 0) try w.writeAll("  no matches\n");
 }
 
 fn writeIndent(w: *Io.Writer, depth: usize) !void {

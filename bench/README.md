@@ -34,7 +34,14 @@ claims.
 | `LeftmostFindIterDense` | 273 µs  | 240 MB/s   |
 | `RuntimeFindIterDense`  | 532 µs  | 123 MB/s   |
 | `RuntimeFindMiss`       | 74.7 µs | 877 MB/s   |
+| `DfaFindIterDense`      | 190 µs  | 345 MB/s   |
+| `DfaFindMiss`           | 80.6 µs | 813 MB/s   |
 | `OverlappingSmall`      | 77.1 µs | 372 MB/s   |
+
+The build rows are `AutomatonBuild` at 0.43 ms and `DfaBuild` at 1.8 ms for
+the 1,000-word dictionary. `DfaFindIterDense` is the dense DFA: it keeps the
+NFA and adds `state_count * alphabet_len` transition entries, 728 KB at four
+bytes each here.
 
 The miss rows are faster than the dense rows because no pattern byte occurs in
 the haystack; each byte takes one class lookup and returns to the root. The

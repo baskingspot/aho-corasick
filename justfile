@@ -67,6 +67,16 @@ doc-deploy: doc
 examples:
     zig build examples
 
+[doc("Run benchmarks (ReleaseFast by default); args pass to the binary: just bench --benchtime=250ms --filter=FindIter")]
+[group("bench")]
+bench *ARGS:
+    zig build bench -- {{ ARGS }}
+
+[doc("Run every benchmark once: proves the suite builds and runs, without measuring")]
+[group("bench")]
+bench-smoke:
+    zig build bench -- --benchtime=8x --count=1 --no-env
+
 [doc("Inspect an Aho-Corasick automaton: `just viz tools/patterns.txt`, `just viz tools/patterns.txt -f walk -t ushers`")]
 [group("viz")]
 viz *ARGS:
@@ -84,4 +94,4 @@ check: test test-release-safe test-release-fast examples
 
 [doc("Everything CI runs: the gate and lint")]
 [group("ci")]
-ci: check lint viz-smoke doc
+ci: check lint viz-smoke doc bench-smoke

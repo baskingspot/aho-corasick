@@ -71,6 +71,25 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(scan);
     const examples_step = b.step("examples", "Build the example programs");
     examples_step.dependOn(b.getInstallStep());
+
+    // The benchmark suite. testingx's engine builds it ReleaseFast by default.
+    if (b.lazyImport(@This(), "testingx")) |testingx| {
+        const testingx_dependency = testingx_dep orelse unreachable;
+        const bench_lib = b.createModule(.{
+            .root_source_file = b.path("src/root.zig"),
+            .target = target,
+            .optimize = .ReleaseFast,
+        });
+        const run_bench = testingx.addBench(b, .{
+            .module = testingx_dependency.module("testingx"),
+            .root_source_file = b.path("src/bench.zig"),
+            .target = target,
+            .imports = &.{.{ .name = "aho-corasick", .module = bench_lib }},
+        });
+        passthruArgs(b, run_bench);
+        const bench_step = b.step("bench", "Run benchmarks");
+        bench_step.dependOn(&run_bench.step);
+    }
 }
 
 /// `b.args` (removed in Zig 0.17) and `Run.addPassthruArgs` are the same

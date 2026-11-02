@@ -18,8 +18,8 @@ lint, the tool, and the docs build. `just check` on `zig-old` is the
 compatibility lane; it builds the examples too and does not build the tool or
 the docs. Run `just fmt` before you commit.
 
-Version differences go in `src/compat.zig`, behind a shape probe (`@hasDecl`,
-`@hasField`), never in the public API. The build API probe for
+The bit-set spellings for Zig 0.16 and 0.17 live in `src/bit_set.zig`, behind
+a shape probe, never in the public API. The build API probe for
 `Run.addPassthruArgs` lives in `build.zig` for the same reason.
 
 `Matcher` is the comptime form; `Automaton` is the runtime form. The search

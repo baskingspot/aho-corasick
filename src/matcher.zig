@@ -24,7 +24,7 @@ const testing = std.testing;
 const ascii = std.ascii;
 const Io = std.Io;
 
-const compat = @import("compat.zig");
+const bit_set = @import("bit_set.zig");
 const Match = @import("Match.zig");
 const MatchKind = @import("Options.zig").MatchKind;
 const Options = @import("Options.zig").Options;
@@ -265,7 +265,7 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
         break :blk list;
     };
 
-    const Mask = compat.Integer(@intCast(alphabet_bytes.len));
+    const Mask = bit_set.StateMask(@intCast(alphabet_bytes.len));
 
     const rank = struct {
         fn rank(mask: Mask, index: usize) usize {
@@ -380,13 +380,13 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
     };
 
     const compact: Compact = blk: {
-        var masks: [max_nodes]Mask = @splat(compat.empty(Mask));
+        var masks: [max_nodes]Mask = @splat(bit_set.empty(Mask));
         var offsets: [max_nodes]u32 = @splat(0);
         var children: [max_edges]NodeIndex = @splat(0);
         var packed_len: usize = 0;
 
         for (0..trie.node_count) |node| {
-            var mask = compat.empty(Mask);
+            var mask = bit_set.empty(Mask);
             var edge = trie.first_child[node];
             while (edge != none) : (edge = trie.next_sibling[edge]) {
                 mask.set(classes[trie.edge_byte[edge]]);
@@ -574,11 +574,11 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
 
         /// The set of patterns that match anywhere in the haystack. Only for
         /// `.standard`.
-        pub const PatternSet = compat.Static(n_patterns);
+        pub const PatternSet = bit_set.PatternSet(n_patterns);
 
         pub fn whichMatches(haystack: []const u8) PatternSet {
             comptime requireStandard("whichMatches");
-            var set = compat.empty(PatternSet);
+            var set = bit_set.empty(PatternSet);
             var iter = Search.findOverlappingIter(&tables, haystack);
             while (iter.next()) |m| set.set(m.pattern);
             return set;

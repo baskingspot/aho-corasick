@@ -168,6 +168,24 @@ test "inspect a state" {
     try testing.expect(matches.next() == null);
 }
 
+test "dense dfa" {
+    const gpa = testing.allocator;
+    var dfa = try ac.Dfa.init(gpa, &.{ "she", "he", "hers" }, .{});
+    defer dfa.deinit();
+
+    const m = dfa.find("ushers").?;
+    try testing.expectEqual(@as(u32, 0), m.pattern);
+    try testing.expectEqual(@as(usize, 1), m.start);
+    try testing.expectEqual(@as(usize, 4), m.end);
+    try testing.expect(dfa.isMatch("hers"));
+
+    var iter = dfa.findOverlappingIter("ushers");
+    try testing.expectEqual(@as(u32, 0), iter.next().?.pattern);
+    try testing.expectEqual(@as(u32, 1), iter.next().?.pattern);
+    try testing.expectEqual(@as(u32, 2), iter.next().?.pattern);
+    try testing.expect(iter.next() == null);
+}
+
 test "runtime errors" {
     try testing.expectError(error.NoPatterns, ac.Automaton.init(testing.allocator, &.{}, .{}));
     try testing.expectError(error.EmptyPattern, ac.Automaton.init(testing.allocator, &.{""}, .{}));

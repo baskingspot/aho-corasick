@@ -37,6 +37,7 @@ while (it.next()) |m| {
 - [Overlapping matches](https://baskingspot.dev/aho-corasick/#overlapping-matches): `findOverlappingIter` reports every match, including the nested ones.
 - [Replace](https://baskingspot.dev/aho-corasick/#replace): `replaceAll` writes the haystack to any writer with one replacement per pattern.
 - [The runtime automaton](https://baskingspot.dev/aho-corasick/#the-runtime-automaton): `Automaton` builds the same tables from a pattern list at runtime.
+- [The dense DFA](https://baskingspot.dev/aho-corasick/#the-dense-dfa): `Dfa` precomputes every transition; it is faster than the runtime NFA and uses more memory.
 - [Case folding](https://baskingspot.dev/aho-corasick/#case-folding): `ascii_case_insensitive` folds ASCII letters as byte classes, not extra trie branches.
 - [Inspect an automaton](https://baskingspot.dev/aho-corasick/#inspect-an-automaton): `just viz` prints the trie, a walk, and a libvaxis view.
 - [Design](https://baskingspot.dev/aho-corasick/#design): the compact tables, the failure and output links, and the one searcher both forms share.

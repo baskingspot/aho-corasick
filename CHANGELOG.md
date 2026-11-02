@@ -11,6 +11,8 @@ All notable changes to aho-corasick are recorded here. The format follows
   iteration, `whichMatches`, `replaceAll`, and the raw state machine.
 - `Automaton`, the runtime builder for the same tables, with `init` and
   `deinit`.
+- `Dfa`, a dense runtime automaton that trades build time and memory for
+  search speed.
 - `acviz`, a developer tool that prints the automaton's stats, trie, Graphviz
   DOT, or a walk over a haystack (`just viz`).
 - The `acviz` terminal view with libvaxis: browse the trie and step a haystack

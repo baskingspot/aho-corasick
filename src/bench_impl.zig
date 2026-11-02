@@ -136,7 +136,6 @@ pub fn benchmarkNextStateMiss(b: *testingx.B) !void {
 }
 
 pub fn benchmarkComptimeFindMiss(b: *testingx.B) !void {
-    try b.reportMetric(@floatFromInt(Matcher.memoryUsage()), "bytes");
     try findBytes(Matcher.find, &miss_text, b);
 }
 
@@ -145,7 +144,6 @@ pub fn benchmarkComptimeIsMatchMiss(b: *testingx.B) !void {
 }
 
 pub fn benchmarkComptimeFindIterDense(b: *testingx.B) !void {
-    try b.reportMetric(@floatFromInt(Matcher.memoryUsage()), "bytes");
     const hidden = b.blackBox(&dense_text);
     b.setBytes(dense_text.len);
     b.reportCounters();
@@ -172,7 +170,6 @@ pub fn benchmarkLeftmostFindIterDense(b: *testingx.B) !void {
 pub fn benchmarkRuntimeFindIterDense(b: *testingx.B) !void {
     var automaton = try ac.Automaton.init(std.heap.page_allocator, &patterns, .{});
     defer automaton.deinit();
-    try b.reportMetric(@floatFromInt(automaton.memoryUsage()), "bytes");
 
     const hidden = b.blackBox(&dense_text);
     b.setBytes(dense_text.len);
@@ -188,7 +185,6 @@ pub fn benchmarkRuntimeFindIterDense(b: *testingx.B) !void {
 pub fn benchmarkRuntimeFindMiss(b: *testingx.B) !void {
     var automaton = try ac.Automaton.init(std.heap.page_allocator, &patterns, .{});
     defer automaton.deinit();
-    try b.reportMetric(@floatFromInt(automaton.memoryUsage()), "bytes");
 
     const hidden = b.blackBox(&miss_text);
     b.setBytes(miss_text.len);
@@ -197,6 +193,55 @@ pub fn benchmarkRuntimeFindMiss(b: *testingx.B) !void {
     defer b.keepAlive(sink);
     while (try b.loop()) {
         sink += @intFromBool(automaton.find(hidden) != null);
+    }
+}
+
+pub fn benchmarkAutomatonBuild(b: *testingx.B) !void {
+    var sink: usize = 0;
+    defer b.keepAlive(sink);
+    while (try b.loop()) {
+        var automaton = try ac.Automaton.init(std.heap.page_allocator, &patterns, .{});
+        sink +%= automaton.stateCount();
+        automaton.deinit();
+    }
+}
+
+pub fn benchmarkDfaBuild(b: *testingx.B) !void {
+    var sink: usize = 0;
+    defer b.keepAlive(sink);
+    while (try b.loop()) {
+        var dfa = try ac.Dfa.init(std.heap.page_allocator, &patterns, .{});
+        sink +%= dfa.stateCount();
+        dfa.deinit();
+    }
+}
+
+pub fn benchmarkDfaFindIterDense(b: *testingx.B) !void {
+    var dfa = try ac.Dfa.init(std.heap.page_allocator, &patterns, .{});
+    defer dfa.deinit();
+
+    const hidden = b.blackBox(&dense_text);
+    b.setBytes(dense_text.len);
+    b.reportCounters();
+    var sink: usize = 0;
+    defer b.keepAlive(sink);
+    while (try b.loop()) {
+        var iter = dfa.findIter(hidden);
+        while (iter.next()) |m| sink +%= m.end - m.start;
+    }
+}
+
+pub fn benchmarkDfaFindMiss(b: *testingx.B) !void {
+    var dfa = try ac.Dfa.init(std.heap.page_allocator, &patterns, .{});
+    defer dfa.deinit();
+
+    const hidden = b.blackBox(&miss_text);
+    b.setBytes(miss_text.len);
+    b.reportCounters();
+    var sink: usize = 0;
+    defer b.keepAlive(sink);
+    while (try b.loop()) {
+        sink += @intFromBool(dfa.find(hidden) != null);
     }
 }
 

@@ -23,6 +23,7 @@ match kinds say which of several matches wins, the same three the Rust
 - [Overlapping matches](#overlapping-matches): `findOverlappingIter` reports every match, including the ones nested inside another.
 - [Replace](#replace): `replaceAll` writes the haystack to any writer with one replacement per pattern.
 - [The runtime automaton](#the-runtime-automaton): `Automaton` builds the same tables from a pattern list at runtime.
+- [The dense DFA](#the-dense-dfa): `Dfa` precomputes every transition, for speed when memory is not the priority.
 - [Case folding](#case-folding): `ascii_case_insensitive` folds ASCII letters as byte classes, not extra trie branches.
 - [Inspect an automaton](#inspect-an-automaton): `just viz` prints the stats, the trie, a walk, and a libvaxis view.
 - [Design](#design): the compact tables, the failure and output links, and the one searcher both forms share.
@@ -285,6 +286,36 @@ Its tables use `u32` state ids and a fixed 256-bit mask per state. The mask is
 32 bytes per state even for a 26-letter alphabet. The
 [Performance](#performance) chapter has the rest.
 
+# The dense DFA
+
+`Automaton` is a contiguous NFA. A transition miss follows failure links. `Dfa`
+precomputes every transition for every state and alphabet class, so a byte is
+one table lookup. It builds the NFA first, keeps it for the outputs and the
+pattern bytes, and adds the dense table.
+
+```zig
+var dfa = try ac.Dfa.init(gpa, patterns, .{});
+defer dfa.deinit();
+
+const m = dfa.find("ushers").?;
+```
+
+`Dfa` has the same search methods as `Automaton`: `find`, `findIter`,
+`findOverlappingIter`, `isMatch`, `whichMatches`, and `replaceAll`. It does not
+expose the trie inspection methods (`transitions`, `stateFailure`); keep an
+`Automaton` when the caller needs to look at the table.
+
+The trade is build time and memory. For 1,000 average words, the NFA builds in
+0.43 ms and the DFA in 1.8 ms on this machine. The dense table has one entry per
+state and alphabet class: 182,000 entries, 728 KB at four bytes each. It keeps
+the NFA's failure links and outputs, so the total is the NFA plus that table.
+
+The [local bench](https://github.com/baskingspot/aho-corasick/blob/main/bench/README.md)
+has the DFA at 345 MB/s on the dense text against the runtime NFA's 123 MB/s.
+The all-miss case is about the same, or slightly slower: it takes the same
+class check and has no transition to avoid. Use the DFA when matching speed
+matters; use the NFA for memory, build time, or inspection.
+
 # Case folding
 
 `Options.ascii_case_insensitive` folds ASCII letters in both the patterns and
@@ -393,8 +424,11 @@ plus the failure, output, offset, depth, and pattern tables.
 This guide makes no search-throughput claim. The cost per byte is one class
 lookup and a short failure walk; the walk is O(1) for most inputs and O(depth)
 in the worst case. Measure your own dictionary and haystack before depending on
-a number. `just bench` runs the local suite, and `bench/README.md` records the
-method and the baseline.
+a number. `just bench` runs the local suite, and
+[`bench/README.md`](https://github.com/baskingspot/aho-corasick/blob/main/bench/README.md)
+records the method and the baseline. The [dense DFA](#the-dense-dfa) is the
+speed option for the runtime form; the [dense DFA](#the-dense-dfa) chapter has
+the build and memory trade.
 
 # Limits
 

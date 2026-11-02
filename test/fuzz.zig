@@ -146,9 +146,9 @@ fn check(
 
 fn checkRuntime(
     comptime set: Set,
-    standard: *const ac.Automaton,
-    first: *const ac.Automaton,
-    longest: *const ac.Automaton,
+    standard: anytype,
+    first: anytype,
+    longest: anytype,
     haystack: []const u8,
     matches: *std.ArrayList(Match),
 ) !void {
@@ -186,6 +186,22 @@ fn run(comptime set: Set) !void {
     });
     defer longest.deinit();
 
+    var dfa_standard = try ac.Dfa.init(testing.allocator, set.patterns, .{
+        .match_kind = .standard,
+        .ascii_case_insensitive = set.fold,
+    });
+    defer dfa_standard.deinit();
+    var dfa_first = try ac.Dfa.init(testing.allocator, set.patterns, .{
+        .match_kind = .leftmost_first,
+        .ascii_case_insensitive = set.fold,
+    });
+    defer dfa_first.deinit();
+    var dfa_longest = try ac.Dfa.init(testing.allocator, set.patterns, .{
+        .match_kind = .leftmost_longest,
+        .ascii_case_insensitive = set.fold,
+    });
+    defer dfa_longest.deinit();
+
     var prng: std.Random.DefaultPrng = .init(testing.random_seed);
     const random = prng.random();
 
@@ -197,6 +213,7 @@ fn run(comptime set: Set) !void {
         }
         try check(set, haystack[0..len], &matches);
         try checkRuntime(set, &standard, &first, &longest, haystack[0..len], &matches);
+        try checkRuntime(set, &dfa_standard, &dfa_first, &dfa_longest, haystack[0..len], &matches);
     }
 }
 

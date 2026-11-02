@@ -22,9 +22,10 @@ The bit-set spellings for Zig 0.16 and 0.17 live in `src/bit_set.zig`, behind
 a shape probe, never in the public API. The build API probe for
 `Run.addPassthruArgs` lives in `build.zig` for the same reason.
 
-`Matcher` is the comptime form; `Automaton` is the runtime form. The search
-semantics, iterators, and match-kind rules live only in `src/Search.zig`, and
-both forms feed it their tables. Do not fork that code.
+`Matcher` is the comptime form; `Automaton` is the runtime NFA and `Dfa` is
+the dense runtime form. The search semantics, iterators, and match-kind rules
+live only in `src/Search.zig`, and all three feed it their tables. Do not fork
+that code.
 
 The comptime builder runs while the type is analyzed. A comptime array element
 access copies the array, so the builder writes each table once, copies it to a

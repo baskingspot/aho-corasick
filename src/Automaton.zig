@@ -418,6 +418,194 @@ pub fn memoryUsage(self: *const Automaton) usize {
         self.pattern_starts.len * @sizeOf(u32);
 }
 
+/// A dense DFA built from the runtime NFA.
+///
+/// The NFA follows failure links on a transition miss. This type precomputes
+/// every transition for every state and alphabet class, so a byte is one
+/// table lookup. It keeps the NFA for the outputs, the pattern bytes, and the
+/// introspection methods; the search reads the dense table.
+pub const Dfa = struct {
+    const DfaTables = struct {
+        pub const StateType = u32;
+
+        goto: []const u32,
+        alphabet: []const u8,
+        classes: [256]u16,
+        own_id: []const u32,
+        links: []const u32,
+        depths: []const u16,
+        pattern_lens: []const u32,
+        match_kind: MatchKind,
+        no_id: u32,
+        none: u32,
+
+        pub fn nextState(self: *const DfaTables, state: u32, byte: u8) u32 {
+            const class = self.classes[byte];
+            if (class == self.alphabet.len) return 0;
+            return self.goto[@as(usize, state) * self.alphabet.len + class];
+        }
+
+        pub fn stateCount(self: *const DfaTables) usize {
+            return self.own_id.len;
+        }
+
+        pub fn alphabetLen(self: *const DfaTables) usize {
+            return self.alphabet.len;
+        }
+
+        pub fn patternLen(self: *const DfaTables, id: u32) usize {
+            return self.pattern_lens[id];
+        }
+
+        pub fn stateDepth(self: *const DfaTables, state: u32) usize {
+            return self.depths[state];
+        }
+    };
+
+    const DfaSearch = Searcher(DfaTables);
+
+    nfa: Automaton,
+    goto: []u32,
+    tables: DfaTables,
+    gpa: Allocator,
+
+    pub fn init(
+        gpa: Allocator,
+        patterns: []const []const u8,
+        options: Options,
+    ) Error!Dfa {
+        var nfa = try Automaton.init(gpa, patterns, options);
+        errdefer nfa.deinit();
+
+        const alphabet_bytes = nfa.alphabet();
+        const state_count = nfa.stateCount();
+        const goto = try gpa.alloc(u32, state_count * alphabet_bytes.len);
+        for (0..state_count) |state| {
+            for (alphabet_bytes, 0..) |byte, class| {
+                goto[state * alphabet_bytes.len + class] = nfa.nextState(@intCast(state), byte);
+            }
+        }
+
+        const tables: DfaTables = .{
+            .goto = goto,
+            .alphabet = alphabet_bytes,
+            .classes = nfa.tables.classes,
+            .own_id = nfa.tables.own_id,
+            .links = nfa.tables.links,
+            .depths = nfa.tables.depths,
+            .pattern_lens = nfa.tables.pattern_lens,
+            .match_kind = nfa.tables.match_kind,
+            .no_id = nfa.tables.no_id,
+            .none = nfa.tables.none,
+        };
+        return .{ .nfa = nfa, .goto = goto, .tables = tables, .gpa = gpa };
+    }
+
+    pub fn deinit(self: *Dfa) void {
+        self.gpa.free(self.goto);
+        self.nfa.deinit();
+        self.* = undefined;
+    }
+
+    pub fn pattern(self: *const Dfa, id: u32) []const u8 {
+        return self.nfa.pattern(id);
+    }
+
+    pub fn patternCount(self: *const Dfa) usize {
+        return self.nfa.patternCount();
+    }
+
+    pub fn patternLen(self: *const Dfa, id: u32) usize {
+        return self.tables.patternLen(id);
+    }
+
+    pub fn minPatternLen(self: *const Dfa) usize {
+        return self.nfa.minPatternLen();
+    }
+
+    pub fn maxPatternLen(self: *const Dfa) usize {
+        return self.nfa.maxPatternLen();
+    }
+
+    pub fn matchKind(self: *const Dfa) MatchKind {
+        return self.tables.match_kind;
+    }
+
+    pub fn stateCount(self: *const Dfa) usize {
+        return self.tables.stateCount();
+    }
+
+    pub fn alphabet(self: *const Dfa) []const u8 {
+        return self.tables.alphabet;
+    }
+
+    pub fn stateDepth(self: *const Dfa, state: State) usize {
+        return self.tables.stateDepth(state);
+    }
+
+    pub fn stateOutput(self: *const Dfa, state: State) ?u32 {
+        const id = self.tables.own_id[state];
+        return if (id == self.tables.no_id) null else id;
+    }
+
+    pub fn matchesAt(self: *const Dfa, state: State, end: usize) DfaSearch.Matches {
+        return DfaSearch.matchesAt(&self.tables, state, end);
+    }
+
+    pub fn firstMatch(self: *const Dfa, state: State, end: usize) ?Match {
+        return DfaSearch.firstMatch(&self.tables, state, end);
+    }
+
+    pub fn find(self: *const Dfa, haystack: []const u8) ?Match {
+        return DfaSearch.find(&self.tables, haystack);
+    }
+
+    pub fn isMatch(self: *const Dfa, haystack: []const u8) bool {
+        return DfaSearch.isMatch(&self.tables, haystack);
+    }
+
+    pub fn findIter(self: *const Dfa, haystack: []const u8) DfaSearch.Iterator {
+        return DfaSearch.findIter(&self.tables, haystack);
+    }
+
+    pub fn findOverlapping(self: *const Dfa, haystack: []const u8) ?Match {
+        return DfaSearch.findOverlapping(&self.tables, haystack);
+    }
+
+    pub fn findOverlappingIter(
+        self: *const Dfa,
+        haystack: []const u8,
+    ) DfaSearch.OverlappingIterator {
+        return DfaSearch.findOverlappingIter(&self.tables, haystack);
+    }
+
+    pub fn whichMatches(
+        self: *const Dfa,
+        gpa: Allocator,
+        haystack: []const u8,
+    ) !bit_set.RuntimeSet {
+        var set: bit_set.RuntimeSet = try .initEmpty(gpa, self.patternCount());
+        errdefer set.deinit(gpa);
+        var iter = self.findOverlappingIter(haystack);
+        while (iter.next()) |m| set.set(m.pattern);
+        return set;
+    }
+
+    pub fn replaceAll(
+        self: *const Dfa,
+        writer: anytype,
+        haystack: []const u8,
+        replacements: []const []const u8,
+    ) !void {
+        return DfaSearch.replaceAll(&self.tables, writer, haystack, replacements);
+    }
+
+    /// The NFA's tables plus the dense transition table.
+    pub fn memoryUsage(self: *const Dfa) usize {
+        return self.nfa.memoryUsage() + self.goto.len * @sizeOf(u32) + @sizeOf(Dfa);
+    }
+};
+
 test "runtime finds a pattern and its span" {
     var automaton: Automaton = try .init(testing.allocator, &.{ "apple", "maple" }, .{});
     defer automaton.deinit();

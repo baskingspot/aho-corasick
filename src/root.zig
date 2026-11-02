@@ -24,6 +24,7 @@ const std = @import("std");
 const testing = std.testing;
 
 pub const Automaton = @import("Automaton.zig");
+pub const Dfa = @import("Automaton.zig").Dfa;
 pub const Match = @import("Match.zig");
 pub const Matcher = @import("matcher.zig").Matcher;
 pub const MatchKind = @import("Options.zig").MatchKind;

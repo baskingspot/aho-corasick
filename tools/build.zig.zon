@@ -8,8 +8,8 @@
             .path = "..",
         },
         .cli = .{
-            .url = "git+https://github.com/baskingspot/cli#c9f1259156a8fcefcd6a2360643474dae9a26dbc",
-            .hash = "cli-0.3.0-nGM5mxEWAQBQygP_PBKB2vPJdyYuYmXgHHxgKtlU3K3Y",
+            .url = "https://baskingspot.dev/cli/v0.3.1.tar.gz",
+            .hash = "cli-0.3.1-nGM5m-sVAQB7tupXqokmZpPHajiV5eZPcbUVDRvGgNPb",
         },
         .vaxis = .{
             .url = "git+https://github.com/rockorager/libvaxis#0620b34e091deaa6f64608922be3814147128dfb",

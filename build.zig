@@ -28,7 +28,7 @@ pub fn build(b: *std.Build) void {
 
     const mod_tests = b.addTest(.{ .root_module = mod, .test_runner = test_runner });
     const run_mod_tests = b.addRunArtifact(mod_tests);
-    passthruArgs(b, run_mod_tests);
+    run_mod_tests.addPassthruArgs();
     test_step.dependOn(&run_mod_tests.step);
 
     // The fuzz test imports the public module, so it sees the same API a
@@ -41,7 +41,7 @@ pub fn build(b: *std.Build) void {
     });
     const fuzz_tests = b.addTest(.{ .root_module = fuzz_mod, .test_runner = test_runner });
     const run_fuzz = b.addRunArtifact(fuzz_tests);
-    passthruArgs(b, run_fuzz);
+    run_fuzz.addPassthruArgs();
     test_step.dependOn(&run_fuzz.step);
 
     // The guide's examples are tests, so a page cannot show code that does
@@ -54,7 +54,7 @@ pub fn build(b: *std.Build) void {
     });
     const guide_tests = b.addTest(.{ .root_module = guide_mod, .test_runner = test_runner });
     const run_guide = b.addRunArtifact(guide_tests);
-    passthruArgs(b, run_guide);
+    run_guide.addPassthruArgs();
     test_step.dependOn(&run_guide.step);
 
     // The example program. It uses the runtime automaton because the patterns
@@ -86,18 +86,8 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .imports = &.{.{ .name = "aho-corasick", .module = bench_lib }},
         });
-        passthruArgs(b, run_bench);
+        run_bench.addPassthruArgs();
         const bench_step = b.step("bench", "Run benchmarks");
         bench_step.dependOn(&run_bench.step);
-    }
-}
-
-/// `b.args` (removed in Zig 0.17) and `Run.addPassthruArgs` are the same
-/// feature on either side of the split. Probe the build API, not the version.
-fn passthruArgs(b: *std.Build, run: *std.Build.Step.Run) void {
-    if (comptime @hasDecl(std.Build.Step.Run, "addPassthruArgs")) {
-        run.addPassthruArgs();
-    } else if (b.args) |args| {
-        run.addArgs(args);
     }
 }

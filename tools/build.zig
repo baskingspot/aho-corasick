@@ -24,11 +24,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(exe);
 
     const run = b.addRunArtifact(exe);
-    if (comptime @hasDecl(std.Build.Step.Run, "addPassthruArgs")) {
-        run.addPassthruArgs();
-    } else if (b.args) |args| {
-        run.addArgs(args);
-    }
+    run.addPassthruArgs();
     const step = b.step("viz", "Inspect an Aho-Corasick automaton");
     step.dependOn(&run.step);
 }

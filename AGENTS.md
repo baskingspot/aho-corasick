@@ -9,18 +9,17 @@ The public API is `src/root.zig`; the guide is `docs/content/_index.md`.
 
 ## Environment
 
-Zig 0.16 and 0.17. The default shell is 0.17; `nix develop .#zig-old` is 0.16.
-The flake is the tool contract, from `baskingspot/nix`: `nix develop` provides
-Zig, `ziglint-0-16`, and the base tools, and nothing comes from the system
-PATH. The justfile is the command interface: `just test`, `just check`,
-`just lint`, `just ci`. `just ci` is the full gate on the default shell: the test matrix, examples,
-lint, the tool, and the docs build. `just check` on `zig-old` is the
-compatibility lane; it builds the examples too and does not build the tool or
-the docs. Run `just fmt` before you commit.
+Zig 0.17. The flake is the tool contract, from `baskingspot/nix`: `nix
+develop` provides Zig, `ziglint-0-17`, and the base tools, and nothing comes
+from the system PATH. The justfile is the command interface: `just test`,
+`just check`, `just lint`, `just ci`. `just ci` is the full gate: the test
+matrix, examples, lint, the tool, and the docs build. `just check` is the gate
+without lint, the tool, or the docs: the test matrix and the examples. Run
+`just fmt` before you commit.
 
-The bit-set spellings for Zig 0.16 and 0.17 live in `src/bit_set.zig`, behind
-a shape probe, never in the public API. The build API probe for
-`Run.addPassthruArgs` lives in `build.zig` for the same reason.
+The bit sets are `std.bit_set`'s: `Integer` for the alphabet classes, `Static`
+for the pattern set, and `Dynamic` for the runtime set. `build.zig` calls
+`Run.addPassthruArgs` directly. No compatibility shims, no probes.
 
 `Matcher` is the comptime form; `Automaton` is the runtime NFA and `Dfa` is
 the dense runtime form. The search semantics, iterators, and match-kind rules
@@ -34,8 +33,8 @@ access copies the array, so the builder writes each table once, copies it to a
 
 `tools/` is a separate package: `tools/build.zig` and `tools/build.zig.zon`
 build `acviz` against the library, `baskingspot/cli`, and `libvaxis`. It needs
-Zig 0.17 because libvaxis does, so `just check` on `zig-old` does not build it;
-`viz-smoke` runs in `ci` on the default shell. `just viz` builds the tool and
+Zig 0.17 because libvaxis does, which is why the tool lives outside the
+library's package; `viz-smoke` runs in `ci`. `just viz` builds the tool and
 runs the binary from the repo root, so pattern paths are repo-relative.
 
 `cli` and `libvaxis` are pinned by commit in `tools/build.zig.zon` until their
@@ -53,7 +52,7 @@ scanner; `just examples` builds it. The site is registered in
 
 - Commit messages are one line, `area: summary`, and every commit is signed. Do not rewrite pushed history.
 - Gate commands on their exit codes, and claim only what you ran.
-- Format with `zig fmt` and lint with `ziglint-0-16`. `just fmt` and `just lint` run both.
+- Format with `zig fmt` and lint with `ziglint-0-17`. `just fmt` and `just lint` run both.
 - This repo's GitHub settings come from `baskingspot/.github`, with `just settings`. Do not change them by hand.
 - The audit is `just audit aho-corasick` from `baskingspot/.github`; it checks the README and guide headings, the About text, the topics, the install form, and the shared settings.
 

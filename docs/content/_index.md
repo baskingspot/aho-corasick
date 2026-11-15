@@ -45,8 +45,8 @@ const aho_corasick = b.dependency("aho_corasick", .{ .target = target, .optimize
 exe.root_module.addImport("aho-corasick", aho_corasick.module("aho-corasick"));
 ```
 
-`aho-corasick` builds with Zig 0.16 and 0.17. The `acviz` tool in `tools/` is a
-separate 0.17 package, because libvaxis requires 0.17.
+`aho-corasick` builds with Zig 0.17. The `acviz` tool in `tools/` is a
+separate package, because libvaxis requires 0.17.
 
 ## Import it
 
@@ -384,7 +384,7 @@ The comptime build sorts the patterns and builds the trie from the sorted
 order. Each pattern shares a prefix with the one before it, so the trie is
 written once from a path stack and never searched during insertion. Failure
 links and output links are built one depth at a time. Every table is written
-once, copied to a `const`, and read only after the copy. Zig 0.16's comptime
+once, copied to a `const`, and read only after the copy. Zig's comptime
 evaluator copies an array on every element access, so a table that is written
 and then read in place is dramatically slower.
 

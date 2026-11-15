@@ -68,8 +68,8 @@ Then import it:
 const ac = @import("aho-corasick");
 ```
 
-`aho-corasick` builds with Zig 0.16 and 0.17. The `acviz` tool in `tools/` is a
-separate 0.17 package, because libvaxis requires 0.17.
+`aho-corasick` builds with Zig 0.17. The `acviz` tool in `tools/` is a
+separate package, because libvaxis requires 0.17.
 
 ## Documentation
 
@@ -83,9 +83,8 @@ separate 0.17 package, because libvaxis requires 0.17.
 
 ```sh
 nix develop            # Zig 0.17 and the tools
-nix develop .#zig-old  # Zig 0.16
 just ci                # the full gate: tests, lint, and the docs build
-just check             # the test matrix and the examples, for the compatibility shell
+just check             # the test matrix and the examples, without lint, the tool, or the docs
 just viz tools/patterns.txt -f tui -t ushers  # browse the automaton
 just examples          # build the scanner in examples/
 just bench             # local benchmark suite; see bench/README.md

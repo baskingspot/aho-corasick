@@ -18,3 +18,7 @@ All notable changes to aho-corasick are recorded here. The format follows
 - The `acviz` terminal view with libvaxis: browse the trie and step a haystack
   through it (`just viz <patterns> -f tui -t <text>`). The tool is a separate
   0.17 package under `tools/`.
+
+### Changed
+
+- The package needs Zig 0.17.0 or newer. Zig 0.16 is no longer supported.

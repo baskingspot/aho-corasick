@@ -2,7 +2,7 @@
     .name = .aho_corasick,
     .version = "0.0.0",
     .fingerprint = 0xc42c562518c6e907, // Changing this has security and trust implications.
-    .minimum_zig_version = "0.16.0",
+    .minimum_zig_version = "0.17.0",
     .dependencies = .{
         // The test runner. Lazy: only the root build uses it, and build.zig
         // returns before this is fetched for a consumer.

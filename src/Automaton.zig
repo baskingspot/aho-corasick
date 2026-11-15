@@ -12,7 +12,7 @@ const Allocator = std.mem.Allocator;
 const math = std.math;
 const ArenaAllocator = std.heap.ArenaAllocator;
 
-const bit_set = @import("bit_set.zig");
+const bit_set = std.bit_set;
 const Match = @import("Match.zig");
 const Matcher = @import("matcher.zig").Matcher;
 const MatchKind = @import("Options.zig").MatchKind;
@@ -29,7 +29,7 @@ pub const State = u32;
 
 /// The state before any byte has been read.
 pub const start_state: State = 0;
-const Mask = bit_set.StateMask(256);
+const Mask = bit_set.Integer(256);
 const TablesImpl = Tables(State, Mask);
 const Search = Searcher(TablesImpl);
 
@@ -229,7 +229,7 @@ pub fn init(
     const own_id = try allocator.alloc(u32, state_count);
     var packed_len: usize = 0;
     for (nodes.items, 0..) |node, state| {
-        var mask = bit_set.empty(Mask);
+        var mask = Mask.empty;
         var edge = node.first_child;
         while (edge != none) : (edge = edges.items[edge].next) {
             mask.set(classes[edges.items[edge].byte]);
@@ -385,8 +385,8 @@ pub fn whichMatches(
     self: *const Automaton,
     gpa: Allocator,
     haystack: []const u8,
-) !bit_set.RuntimeSet {
-    var set: bit_set.RuntimeSet = try .initEmpty(gpa, self.patternCount());
+) !bit_set.Dynamic {
+    var set: bit_set.Dynamic = try .initEmpty(gpa, self.patternCount());
     errdefer set.deinit(gpa);
     var iter = self.findOverlappingIter(haystack);
     while (iter.next()) |m| set.set(m.pattern);
@@ -583,8 +583,8 @@ pub const Dfa = struct {
         self: *const Dfa,
         gpa: Allocator,
         haystack: []const u8,
-    ) !bit_set.RuntimeSet {
-        var set: bit_set.RuntimeSet = try .initEmpty(gpa, self.patternCount());
+    ) !bit_set.Dynamic {
+        var set: bit_set.Dynamic = try .initEmpty(gpa, self.patternCount());
         errdefer set.deinit(gpa);
         var iter = self.findOverlappingIter(haystack);
         while (iter.next()) |m| set.set(m.pattern);

@@ -20,10 +20,10 @@ test-release-safe:
 test-release-fast:
     zig build test -Doptimize=ReleaseFast --summary all
 
-[doc("Lint Zig, Nix, Markdown, and the workflows: ziglint against 0.16, the ast-grep rules, zig fmt, nix fmt, oxfmt, actionlint, zizmor, and just --fmt")]
+[doc("Lint Zig, Nix, Markdown, and the workflows: ziglint against 0.17, the ast-grep rules, zig fmt, nix fmt, oxfmt, actionlint, zizmor, and just --fmt")]
 [group("lint")]
 lint:
-    ziglint-0-16
+    ziglint-0-17
     baskingspot-lint src test tools/acviz.zig tools/tui.zig tools/build.zig docs/examples examples
     zig fmt --check src test tools/acviz.zig tools/tui.zig tools/build.zig docs/examples examples build.zig build.zig.zon tools/build.zig.zon
     nix fmt -- --ci
@@ -88,7 +88,7 @@ viz-smoke:
     cd tools && zig build
     tools/zig-out/bin/acviz tools/patterns.txt -f stats > /dev/null
 
-[doc("The per-version gate: the Debug and release-mode test suites")]
+[doc("The gate before the rest: the Debug and release-mode test suites and the examples")]
 [group("ci")]
 check: test test-release-safe test-release-fast examples
 

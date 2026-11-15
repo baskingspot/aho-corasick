@@ -82,7 +82,7 @@ const App = struct {
         const height: usize = win.height;
         if (height < 4) return;
 
-        const header = std.fmt.bufPrint(
+        const header = std.mem.print(
             &self.header,
             "acviz  {d} patterns  {d} states  {d} transitions  {d} B  {s}",
             .{

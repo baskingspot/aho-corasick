@@ -23,8 +23,8 @@ const math = std.math;
 const testing = std.testing;
 const ascii = std.ascii;
 const Io = std.Io;
-
 const bit_set = std.bit_set;
+
 const Match = @import("Match.zig");
 const MatchKind = @import("Options.zig").MatchKind;
 const Options = @import("Options.zig").Options;
@@ -380,13 +380,13 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
     };
 
     const compact: Compact = blk: {
-        var masks: [max_nodes]Mask = @splat(Mask.empty);
+        var masks: [max_nodes]Mask = @splat(.empty);
         var offsets: [max_nodes]u32 = @splat(0);
         var children: [max_edges]NodeIndex = @splat(0);
         var packed_len: usize = 0;
 
         for (0..trie.node_count) |node| {
-            var mask = Mask.empty;
+            var mask: Mask = .empty;
             var edge = trie.first_child[node];
             while (edge != none) : (edge = trie.next_sibling[edge]) {
                 mask.set(classes[trie.edge_byte[edge]]);

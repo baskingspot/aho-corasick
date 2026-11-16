@@ -11,8 +11,8 @@ const testing = std.testing;
 const Allocator = std.mem.Allocator;
 const math = std.math;
 const ArenaAllocator = std.heap.ArenaAllocator;
-
 const bit_set = std.bit_set;
+
 const Match = @import("Match.zig");
 const Matcher = @import("matcher.zig").Matcher;
 const MatchKind = @import("Options.zig").MatchKind;
@@ -229,7 +229,7 @@ pub fn init(
     const own_id = try allocator.alloc(u32, state_count);
     var packed_len: usize = 0;
     for (nodes.items, 0..) |node, state| {
-        var mask = Mask.empty;
+        var mask: Mask = .empty;
         var edge = node.first_child;
         while (edge != none) : (edge = edges.items[edge].next) {
             mask.set(classes[edges.items[edge].byte]);

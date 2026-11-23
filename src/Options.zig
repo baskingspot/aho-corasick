@@ -1,8 +1,4 @@
 //! Match semantics shared by the comptime and runtime automata.
-//!
-//! `Matcher` and `Automaton` take this struct as their options bag:
-//! `match_kind` picks which match wins, and `ascii_case_insensitive` folds
-//! ASCII letters in the patterns and the haystack.
 
 // ast-grep-ignore: public-struct-field-default -- an options bag; a call site overrides one knob.
 match_kind: MatchKind = .standard,

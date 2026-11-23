@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub fn build(b: *std.Build) void {
+pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
@@ -15,14 +15,14 @@ pub fn build(b: *std.Build) void {
     if (b.pkg_hash.len != 0) return;
 
     // testingx provides the test runner. It is lazy because only the root
-    // build uses it; a consumer never fetches it. On the first configure pass
-    // it is not fetched yet, `lazyDependency` returns null, and the build
-    // runner fetches it and reruns this script.
-    const testingx_dep = b.lazyDependency("testingx", .{ .target = target });
-    const test_runner: ?std.Build.Step.Compile.TestRunner = if (testingx_dep) |dep|
-        .{ .path = dep.path("src/runner.zig"), .mode = .simple }
-    else
-        null;
+    // build uses it; a consumer never fetches it. If it is not fetched yet,
+    // `dependencyLazy` returns an error, the build runner fetches it, and this
+    // script runs again.
+    const testingx_dep = try b.dependencyLazy("testingx", .{ .target = target });
+    const test_runner: std.Build.Step.Compile.TestRunner = .{
+        .path = testingx_dep.path("src/runner.zig"),
+        .mode = .simple,
+    };
 
     const test_step = b.step("test", "Run the unit tests and the fuzz comparison");
 
@@ -74,14 +74,13 @@ pub fn build(b: *std.Build) void {
 
     // The benchmark suite. testingx's engine builds it ReleaseFast by default.
     if (b.lazyImport(@This(), "testingx")) |testingx| {
-        const testingx_dependency = testingx_dep orelse unreachable;
         const bench_lib = b.createModule(.{
             .root_source_file = b.path("src/root.zig"),
             .target = target,
             .optimize = .ReleaseFast,
         });
         const run_bench = testingx.addBench(b, .{
-            .module = testingx_dependency.module("testingx"),
+            .module = testingx_dep.module("testingx"),
             .root_source_file = b.path("src/bench.zig"),
             .target = target,
             .imports = &.{.{ .name = "aho-corasick", .module = bench_lib }},

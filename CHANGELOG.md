@@ -5,6 +5,8 @@ All notable changes to aho-corasick are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-23
+
 ### Added
 
 - `Matcher`, a comptime Aho-Corasick automaton, with `MatchKind`, overlapping

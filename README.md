@@ -49,10 +49,8 @@ Not implemented:
 
 ## Install
 
-Before the first tag:
-
 ```sh
-zig fetch --save git+https://github.com/baskingspot/aho-corasick
+zig fetch --save https://baskingspot.dev/aho-corasick/v0.1.0.tar.gz
 ```
 
 Add the module to your build:

@@ -13,6 +13,8 @@ All notable changes to aho-corasick are recorded here. The format follows
   `deinit`.
 - `Dfa`, a dense runtime automaton that trades build time and memory for
   search speed.
+- `ascii_case_insensitive`: ASCII case folding in both the patterns and the
+  haystack, as a byte-class remap rather than extra trie branches.
 - `acviz`, a developer tool that prints the automaton's stats, trie, Graphviz
   DOT, or a walk over a haystack (`just viz`).
 - The `acviz` terminal view with libvaxis: browse the trie and step a haystack

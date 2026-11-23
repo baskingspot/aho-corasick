@@ -5,7 +5,8 @@
 
 const std = @import("std");
 const Io = std.Io;
-const Allocator = std.mem.Allocator;
+const mem = std.mem;
+const Allocator = mem.Allocator;
 const print = std.debug.print;
 
 const ac = @import("aho-corasick");
@@ -139,17 +140,17 @@ fn kindName(kind: ac.MatchKind) []const u8 {
 }
 
 fn parseKind(raw: []const u8) ?ac.MatchKind {
-    if (std.mem.eql(u8, raw, "standard")) return .standard;
-    if (std.mem.eql(u8, raw, "leftmost-first")) return .leftmost_first;
-    if (std.mem.eql(u8, raw, "leftmost-longest")) return .leftmost_longest;
+    if (mem.eql(u8, raw, "standard")) return .standard;
+    if (mem.eql(u8, raw, "leftmost-first")) return .leftmost_first;
+    if (mem.eql(u8, raw, "leftmost-longest")) return .leftmost_longest;
     return null;
 }
 
 fn readPatterns(arena: Allocator, text: []const u8) ![]const []const u8 {
     var patterns: std.ArrayList([]const u8) = .empty;
-    var lines = std.mem.splitScalar(u8, text, '\n');
+    var lines = mem.splitScalar(u8, text, '\n');
     while (lines.next()) |line| {
-        const trimmed = std.mem.trim(u8, line, " \t\r");
+        const trimmed = mem.trim(u8, line, " \t\r");
         if (trimmed.len == 0 or trimmed[0] == '#') continue;
         try patterns.append(arena, trimmed);
     }

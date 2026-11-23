@@ -1,5 +1,7 @@
 //! One match: which pattern, and where.
 
+const testing = @import("std").testing;
+
 const Match = @This();
 
 /// The index into the pattern list the automaton was built from.
@@ -17,9 +19,7 @@ pub fn isEmpty(self: Match) bool {
     return self.end == self.start;
 }
 
-test "len and isEmpty" {
-    const testing = @import("std").testing;
-
+test Match {
     const m: Match = .{ .pattern = 3, .start = 10, .end = 15 };
     try testing.expectEqual(5, m.len());
     try testing.expect(!m.isEmpty());

@@ -23,7 +23,7 @@ for the pattern set, and `Dynamic` for the runtime set. `build.zig` calls
 
 `Matcher` is the comptime form; `Automaton` is the runtime NFA and `Dfa` is
 the dense runtime form. The search semantics, iterators, and match-kind rules
-live only in `src/Search.zig`, and all three feed it their tables. Do not fork
+live only in `src/search.zig`, and all three feed it their tables. Do not fork
 that code.
 
 The comptime builder runs while the type is analyzed. A comptime array element

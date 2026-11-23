@@ -15,10 +15,10 @@ const bit_set = std.bit_set;
 
 const Match = @import("Match.zig");
 const Matcher = @import("matcher.zig").Matcher;
-const MatchKind = @import("Options.zig").MatchKind;
-const Options = @import("Options.zig").Options;
-const Searcher = @import("Search.zig").Searcher;
-const Tables = @import("Tables.zig").Tables;
+const Options = @import("Options.zig");
+const MatchKind = Options.MatchKind;
+const Searcher = @import("search.zig").Searcher;
+const Tables = @import("tables.zig").Tables;
 
 const Automaton = @This();
 

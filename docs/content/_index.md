@@ -389,7 +389,7 @@ evaluator copies an array on every element access, so a table that is written
 and then read in place is dramatically slower.
 
 The runtime build uses the same table fields with allocated slices. The search
-algorithms live in `src/Search.zig` and are generic over the tables. The
+algorithms live in `src/search.zig` and are generic over the tables. The
 comptime matcher and the runtime automaton are two table implementations, not
 two searchers, so the match semantics cannot drift between them.
 

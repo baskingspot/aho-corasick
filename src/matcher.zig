@@ -19,6 +19,7 @@
 //! slower to index than the same array behind a `const`.
 
 const std = @import("std");
+const mem = std.mem;
 const math = std.math;
 const testing = std.testing;
 const ascii = std.ascii;
@@ -26,10 +27,10 @@ const Io = std.Io;
 const bit_set = std.bit_set;
 
 const Match = @import("Match.zig");
-const MatchKind = @import("Options.zig").MatchKind;
-const Options = @import("Options.zig").Options;
-const Searcher = @import("Search.zig").Searcher;
-const Tables = @import("Tables.zig").Tables;
+const Options = @import("Options.zig");
+const MatchKind = Options.MatchKind;
+const Searcher = @import("search.zig").Searcher;
+const Tables = @import("tables.zig").Tables;
 
 /// Builds a matcher for `patterns` at comptime.
 ///
@@ -131,7 +132,7 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
                 while (i < mid and j < high) {
                     const a = folded.pattern(previous[i]);
                     const b = folded.pattern(previous[j]);
-                    if (std.mem.order(u8, b, a) == .lt) {
+                    if (mem.order(u8, b, a) == .lt) {
                         merged[k] = previous[j];
                         j += 1;
                     } else {
@@ -155,7 +156,7 @@ pub fn Matcher(comptime patterns: []const []const u8, comptime options: Options)
         }
 
         for (1..n_patterns) |i| {
-            if (std.mem.eql(u8, folded.pattern(current[i - 1]), folded.pattern(current[i]))) {
+            if (mem.eql(u8, folded.pattern(current[i - 1]), folded.pattern(current[i]))) {
                 @compileError("aho-corasick: duplicate pattern");
             }
         }

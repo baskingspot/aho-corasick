@@ -7,11 +7,13 @@
 //! prefixes, and suffix matches come up constantly.
 
 const std = @import("std");
-const ac = @import("aho-corasick");
-const Match = ac.Match;
 const testing = std.testing;
 const print = std.debug.print;
 const ascii = std.ascii;
+const mem = std.mem;
+
+const ac = @import("aho-corasick");
+const Match = ac.Match;
 
 const Set = struct {
     patterns: []const []const u8,
@@ -133,14 +135,14 @@ fn check(
         .ascii_case_insensitive = set.fold,
     });
 
-    std.mem.sort(Match, matches.items, {}, byEnd);
+    mem.sort(Match, matches.items, {}, byEnd);
     try expectOverlapping(Standard.findOverlappingIter(haystack), matches.items, haystack);
     try expectStandard(Standard.findIter(haystack), matches.items, haystack);
 
-    std.mem.sort(Match, matches.items, {}, byStartPattern);
+    mem.sort(Match, matches.items, {}, byStartPattern);
     try expectLeftmost(First.findIter(haystack), matches.items, haystack);
 
-    std.mem.sort(Match, matches.items, {}, byStartLength);
+    mem.sort(Match, matches.items, {}, byStartLength);
     try expectLeftmost(Longest.findIter(haystack), matches.items, haystack);
 }
 
@@ -155,14 +157,14 @@ fn checkRuntime(
     matches.clearRetainingCapacity();
     try collect(set, haystack, matches);
 
-    std.mem.sort(Match, matches.items, {}, byEnd);
+    mem.sort(Match, matches.items, {}, byEnd);
     try expectOverlapping(standard.findOverlappingIter(haystack), matches.items, haystack);
     try expectStandard(standard.findIter(haystack), matches.items, haystack);
 
-    std.mem.sort(Match, matches.items, {}, byStartPattern);
+    mem.sort(Match, matches.items, {}, byStartPattern);
     try expectLeftmost(first.findIter(haystack), matches.items, haystack);
 
-    std.mem.sort(Match, matches.items, {}, byStartLength);
+    mem.sort(Match, matches.items, {}, byStartLength);
     try expectLeftmost(longest.findIter(haystack), matches.items, haystack);
 }
 

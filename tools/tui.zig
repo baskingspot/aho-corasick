@@ -1,12 +1,13 @@
 //! The libvaxis view for acviz: browse the trie and step through a haystack.
 
 const std = @import("std");
-const vaxis = @import("vaxis");
-const ac = @import("aho-corasick");
-
-const Cell = vaxis.Cell;
 const Io = std.Io;
-const Allocator = std.mem.Allocator;
+const mem = std.mem;
+const Allocator = mem.Allocator;
+
+const ac = @import("aho-corasick");
+const vaxis = @import("vaxis");
+const Cell = vaxis.Cell;
 
 const Event = union(enum) {
     key_press: vaxis.Key,
@@ -82,7 +83,7 @@ const App = struct {
         const height: usize = win.height;
         if (height < 4) return;
 
-        const header = std.mem.print(
+        const header = mem.print(
             &self.header,
             "acviz  {d} patterns  {d} states  {d} transitions  {d} B  {s}",
             .{
@@ -215,7 +216,7 @@ const App = struct {
             length += 1;
             cursor = parent;
         }
-        std.mem.reverse(u8, buffer[0..length]);
+        mem.reverse(u8, buffer[0..length]);
         return buffer[0..length];
     }
 };
